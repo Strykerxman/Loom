@@ -74,8 +74,28 @@ Thread B can validate a password using the database, a read.
 > This is parallel, each thread has its own memory space to perform work from pooling, but share RAM (database settings, connection pool, metadata, etc.).  
 
 However, parallelism is an illusion when it comes to `.commit()` in SQLite. Threads need to wait for the other to complete its write before doing its own write. This follows the **Isolation** principle.  
-Postgres solves this by being a server with multiple processes. It doesn't directly write to a row in the database, it creates a new draft of the row. The original one is marked as "expired", but can still be read from other connections, allowing operations to continue.
+Postgres solves this by being a server with multiple processes. It doesn't directly write to a row in the database, it creates a new draft of the row. The original one is marked as *expired*, but can still be read from other connections, allowing operations to continue.
 
 **SQLITE:**
 - `connect_args={"check_same_thread": False}`: non-default; SQLite prevents sharing a connection across multiple threads by default, i.e. when `True`. When only one thread is in use, a user may have to wait and sit in front of a loading screen, waiting for that thread to finish its execution (math, data processing, etc.). This tells SQLite that we *know* multiple threads may touch the database and that it's allowed.
+
+### Adding, Committing, Refreshing
+
+An entry is added to the stage, it gets committed and is then returned. [crud.py](app/database/crud.py)
+
+```python
+db.add(db_job) 
+db.commit()
+db.refresh(db_job)
+
+return db_job
+```  
+
+Initially, `db_job.job_id = None` when it is created using `db_job = JobTable(...)`. It is then staged and committed. The Session translates the `JobTable` into `INSERT` SQL statements. They are then sent over the network to the database. The rows are inserted and the database autoincrements the primary key (i.e. the new job is given **ID 1** if it's the first insert). The Session does **NOT** automatically grab `job_id = 1` from the database, nor does it update the `db_job.job_id`.
+
+SQLAlchemy has a default setting `expire_on_commit = True`, causing this behavior, the safest choice possible as SQLAlchemy doesn't know what the database did behind its back when inserting the new row, like giving an ID.
+
+So there are expired attributes of data (i.e. `job_id`). How to update them instantly without having to create a new connection? A ***refresh*** is needed before closing the connection. This guarantees data is fetched while the Session is still open and it serves the updated data after it is committed (like a new `job_id`). SQLAlchemy runs a hidden `SELECT` when a refresh is called. It updates the affected Python objects. If there was no refresh, FastAPI would hand `db_job` to Pydantic (the `JobResponse` schema) and try to get `db_job.job_id`. It would then go into the database to find it, but it crashes as the Session is already closed. 
+
+
 

@@ -1,7 +1,7 @@
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine, Engine
 
-SQLITE_DATABASE_URL = "sqlite:///./sentinel.db"
+SQLITE_DATABASE_URL = "sqlite:///./loom.db"
 engine: Engine = None
 SessionLocal: Session = None
 
@@ -11,9 +11,6 @@ SessionLocal: Session = None
 #     )
 
 # SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-
-class Base(DeclarativeBase):
-    pass
 
 
 def init_db():
@@ -29,7 +26,6 @@ def init_db():
         SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 def get_db():
-
     if SessionLocal is None:
         init_db()
 
@@ -37,7 +33,7 @@ def get_db():
 
     try:
         yield db
-        
+
     finally:
         db.close()
 

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
-from app.database.database import Base
+from app.models.base import Base
 
 class JobTable(Base):
     __tablename__ = 'jobs'
@@ -25,5 +25,6 @@ class TaskTable(Base):
     response = Column(JSON)
     error_log = Column(String)
     retry_count = Column(Integer, default=0)
+    status = Column(String)
 
     job = relationship("JobTable", back_populates='tasks')

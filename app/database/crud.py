@@ -26,3 +26,11 @@ def create_eval_job(db: Session, prompts: list[str]) -> JobTable:
     # Needed as the API response will have the created job ID and it can't access it once the Session is closed (after the database commit if no refresh)
      
     return db_job
+
+
+def find_job_from_id(db: Session, job_id: int) -> JobTable:
+    return (
+        db.query(JobTable)
+        .filter(JobTable.job_id == job_id)
+        .first()
+    )

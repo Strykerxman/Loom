@@ -34,3 +34,10 @@ def find_job_from_id(db: Session, job_id: int) -> JobTable:
         .filter(JobTable.job_id == job_id)
         .first()
     )
+
+def find_pending_task(db: Session) -> TaskTable:
+    return (
+        db.query(TaskTable)
+        .filter(TaskTable.status == "pending")
+        .first()
+    )

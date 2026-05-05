@@ -52,7 +52,8 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 5. Start the Postgres Docker container:
    ```bash
    docker-compose up -d
-   ```  
+   ```
+   ***NOTE***: Make sure to create a `.env` containing a `DATABASE_URL` **AND** 
 6. Create a simple POST request to start a job:
    ```bash
       curl -X 'POST' \

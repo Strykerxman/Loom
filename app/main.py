@@ -3,8 +3,7 @@ from fastapi import FastAPI
 from .api import router
 from .database.database import engine
 from .models.base import Base
-from .models import models
-
+from .models import models  # Import all models to ensure they are registered with SQLAlchemy
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

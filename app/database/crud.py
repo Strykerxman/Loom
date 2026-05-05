@@ -41,6 +41,6 @@ def find_pending_task(db: Session) -> TaskTable:
     return (
         db.query(TaskTable)
         .filter(TaskTable.status == "pending")
-        .with_for_update(skip_locked=True) # ensures that if multiple workers query for pending tasks at the same time, they won't pick the same one
+        .with_for_update(skip_locked=True) # Ensures that if multiple workers query for pending tasks at the same time, they won't pick the same one
         .first()
     )

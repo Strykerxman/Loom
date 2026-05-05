@@ -24,10 +24,10 @@ def create_evaluation_job(request: EvalRequest, db: Session = Depends(get_db)):
             completed_tasks=0
         )
     
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create evaluation job. Please try again later."
+            detail="Failed to create evaluation job. Please try again later."
         )
     
     
@@ -36,10 +36,10 @@ def get_evaluation_job_status_from_id(job_id: int, db: Session = Depends(get_db)
     try:
         db_job: JobTable = find_job_from_id(db=db, job_id=job_id)
     
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database query failed. Please try again later."
+            detail="Database query failed. Please try again later."
         )
     
     if db_job is None:
@@ -53,14 +53,14 @@ def get_evaluation_job_status_from_id(job_id: int, db: Session = Depends(get_db)
     completed_tasks = len([t for t in db_job.tasks if t.status == "done"])
     finished_tasks = len([t for t in db_job.tasks if t.status in terminal_statuses])
 
-    if total_tasks == 0: # edge case, shouldn't happen as we create jobs with at least 1 task, but good to handle just in case
+    if total_tasks == 0: # Edge case, shouldn't happen as we create jobs with at least 1 task, but good to handle just in case
         job_status = "pending"
     elif finished_tasks == total_tasks:
         job_status = "done"
     elif finished_tasks > 0 or any(t.status == "running" for t in db_job.tasks):
-        job_status = "running" # some tasks are done/failed, or a worker is currently processing one
+        job_status = "running" # Some tasks are done/failed, or a worker is currently processing one
     else:
-        job_status = "pending" # no tasks have started yet
+        job_status = "pending" # No tasks have started yet
 
     return JobResponse(
         job_id=db_job.job_id,

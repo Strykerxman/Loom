@@ -13,7 +13,11 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 def get_db():
-    db: Session = SessionLocal() # create a new instance of the Session class, let's us perform transactions
+    """
+    Dependency function to get a database session for API endpoints.
+    Ensures that the session is properly closed after the request is done.
+    """
+    db: Session = SessionLocal() # Create a new instance of the Session class, let's us perform transactions
     try:
         yield db
     finally:

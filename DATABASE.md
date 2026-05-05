@@ -105,5 +105,9 @@ Before adding `with_for_update(skip_locked=True)` to a SQL query, workers query 
 
 The SQLAlchemy translation is `with_for_update(skip_locked=True)`. This turns the simple Python script into a robust, high-throughput distributed worker node.
 
+### Cascading
+
+When a Job is deleted, we want all of its Tasks to be deleted as well. This is called ***cascading deletes***. It prevents orphaned records (tasks without a parent job) and keeps the database clean. In SQLAlchemy, this is achieved by setting `cascade="all, delete-orphan"` in the relationship definition between Job and Task models. This means that when a Job is deleted, all associated Tasks will also be automatically deleted from the database. 
+
 
 

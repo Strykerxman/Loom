@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.models.base import Base
@@ -7,10 +7,10 @@ class JobTable(Base):
     __tablename__ = 'jobs'
 
     job_id = Column(Integer, primary_key=True, index=True) # Stores the ID of a given Job, primary key and indexed for quick lookups
-    status = Column(String, default="pending", nullable=False) # Stores status of a given Job, indexed for quick lookups (eg. pending, running, done, failed)
-    created_at = Column(DateTime) # Stores time at which a Job was created, may be indexed later on, but not critical
+    status = Column(String, default="pending", nullable=False) # Stores status of a given Job
+    created_at = Column(DateTime, server_default=func.now()) # Stores time at which a Job was created, may be indexed later on, but not critical
 
-    tasks = relationship("TaskTable", back_populates='job')
+    tasks = relationship("TaskTable", back_populates='job', cascade="all, delete-orphan")
 
     # A Job is a general goal, while a Task is an execution that is part of a Job.
     # We separate them so that if an error occurs during a Job, we identify the specific Task that failed w/o having to start all over
@@ -21,11 +21,11 @@ class TaskTable(Base):
     __tablename__ = 'tasks'
 
     task_id = Column(Integer, primary_key=True, index=True) # Stores the ID of a given Task
-    parent_job_id = Column(Integer, ForeignKey('jobs.job_id')) # Stores the ID of the Job that contains this Task
-    payload = Column(JSONB) 
-    response = Column(JSONB)
+    parent_job_id = Column(Integer, ForeignKey('jobs.job_id', ondelete="CASCADE"), nullable=False) # Stores the ID of the Job that contains this Task
+    payload = Column(JSONB, nullable=False) # {"prompt": prompt}, nullable=False because we need the prompt to process the task, and it should always be provided when we create a Task in the database
+    response = Column(JSONB) # {"text": mock_response, "model": "mock-llm"}
 
-    evaluation_result = Column(JSONB)
+    evaluation_result = Column(JSONB, nullable=True) # Stores the PII evaluation result as JSON, nullable because it won't be populated until after the worker processes the task
 
     error_log = Column(String)
     retry_count = Column(Integer, default=0, nullable=False)

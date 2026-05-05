@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models import JobTable, TaskTable
 
@@ -37,6 +38,7 @@ def find_job_from_id(db: Session, job_id: int) -> JobTable:
         .first()
     )
 
+
 def find_pending_task(db: Session) -> TaskTable:
     return (
         db.query(TaskTable)
@@ -44,3 +46,29 @@ def find_pending_task(db: Session) -> TaskTable:
         .with_for_update(skip_locked=True) # Ensures that if multiple workers query for pending tasks at the same time, they won't pick the same one
         .first()
     )
+
+
+def get_total_tasks_for_job(db: Session, job_id: int) -> int:
+    return db.query(func.count(TaskTable.task_id)).filter(TaskTable.parent_job_id == job_id).scalar()
+
+
+def get_completed_tasks_for_job(db: Session, job_id: int) -> int:
+    return db.query(func.count(TaskTable.task_id)).filter(
+        TaskTable.parent_job_id == job_id, 
+        TaskTable.status == "done"
+    ).scalar()
+
+
+def get_finished_tasks_for_job(db: Session, job_id: int) -> int:
+    return db.query(func.count(TaskTable.task_id)).filter(
+        TaskTable.parent_job_id == job_id, 
+        TaskTable.status.in_(["done", "failed"])
+    ).scalar()
+
+
+def get_running_tasks_for_job(db: Session, job_id: int) -> int:
+    return db.query(func.count(TaskTable.task_id)).filter(
+        TaskTable.parent_job_id == job_id, 
+        TaskTable.status == "running"
+    ).scalar()
+

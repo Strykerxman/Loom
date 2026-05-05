@@ -2,6 +2,8 @@ import random
 import time
 from .database.database import SessionLocal
 from .database.crud import find_pending_task
+from .services.evaluator import evaluate_pii
+from .schemas.schemas import PIIEval
 
 db = SessionLocal()
 
@@ -17,11 +19,17 @@ def run_worker():
             db.commit() # Performs an UPDATE to the database, no new ID to fetch or anything
 
             try:
-                time.sleep(random.randint(2, 5)) # Simulate variable LLM processing time
+                prompt = task.payload["prompt"]
 
+                time.sleep(random.randint(2, 5)) # Simulate variable LLM processing time
                 if random.random() < 0.3: # 30% chance of failure to test retry mechanism
                     raise ValueError("Simulated task failure")
                 
+                mock_response = f"Echo: {prompt}"
+                pii_eval: PIIEval = evaluate_pii(text=mock_response)
+                task.response = {"text": mock_response, "model": "mock-llm"}
+                task.evaluation_result = pii_eval.model_dump()
+                task.error_log = None
                 task.status = "done" # Update the task status to "done" in the database, no error was raised, so we consider the task successfully completed
 
             except Exception as e:

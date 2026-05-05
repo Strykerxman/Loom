@@ -3,7 +3,9 @@ services:
        image: postgres:15-alpine
        container_name: loom_postgres
        environment:
+         POSTGRES_USER: postgres
          POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+         POSTGRES_DB: loom_db
        ports:
          - "127.0.0.1:5432:5432"
        volumes:

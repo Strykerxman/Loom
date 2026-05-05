@@ -23,7 +23,7 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 
 **Current (Phase 1: Foundation)**
 * **Web Framework:** FastAPI
-* **ORM & Database:** SQLAlchemy + SQLite (Local Prototyping)
+* **ORM & Database:** SQLAlchemy + PostgreSQL (Local Docker)
 * **Data Validation:** Pydantic
 
 **Roadmap (Phase 2 & 3: Distributed Execution)**
@@ -53,7 +53,7 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
    ```bash
    docker-compose up -d
    ```
-   ***NOTE***: Make sure to create a `.env` containing a `DATABASE_URL` **AND** 
+   ***NOTE***: Copy `.env.example` to `.env` and keep the local `.env` untracked.
 6. Create a simple POST request to start a job:
    ```bash
       curl -X 'POST' \

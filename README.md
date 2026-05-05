@@ -56,7 +56,7 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 6. Create a simple POST request to start a job:
    ```bash
       curl -X 'POST' \
-      'http://127.0.0.1:8000/evaluate/start' \
+      'http://127.0.0.1:8000/eval/start' \
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
       -d '{
@@ -66,7 +66,7 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
       }'
    ```
    ***NOTE***: The current implementation mocks LLM responses by using `time.sleep(2)`. **No API calls are being made yet.**  
-    
+
 7. Deploy workers from the command prompt from the source directory (you may launch as many as desired):
    ```bash
    cd path/to/Loom
@@ -75,14 +75,14 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 
 ## 🔌 API Reference
 
-### `POST /evaluate/eval`
-Submit a batch of prompts for evaluation. Returns a Claim Ticket (`job_id`).
+### `POST /eval/start`
+Submit a batch of prompts for evaluation. Returns a Claim Ticket (`job_id`) and task counts.
 * **Payload:** `{"prompts": ["prompt 1", "prompt 2"]}`
-* **Response:** `202 Accepted` | `{"job_id": 1, "status": "pending"}`
+* **Response:** `202 Accepted` | `{"job_id": 1, "status": "pending", "total_tasks": 2, "completed_tasks": 0}`
 
-### `GET /evaluate/status/{job_id}`
-Check the status of an existing evaluation job.
-* **Response:** `200 OK` | `{"job_id": 1, "status": "running"}`
+### `GET /eval/status/{job_id}`
+Check the aggregate status of an existing evaluation job and its underlying tasks.
+* **Response:** `200 OK` | `{"job_id": 1, "status": "running", "total_tasks": 2, "completed_tasks": 1}`
 * **Errors:** `404 Not Found` if the job does not exist.
 
 ---

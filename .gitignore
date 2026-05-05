@@ -1,6 +1,9 @@
 *.db
-__pycache__
+__pycache__/
 .ruff_cache
 .vscode
-*/__pycache__/
+*/__pycache__
 *.pyc
+.env
+.env.*
+.env

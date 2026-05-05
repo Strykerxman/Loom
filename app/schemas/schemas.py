@@ -8,3 +8,5 @@ class JobResponse(BaseModel):
 
     job_id: int
     status: str
+    total_tasks: int = 0
+    completed_tasks: int = 0

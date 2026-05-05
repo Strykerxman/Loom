@@ -5,6 +5,8 @@ from app.models import JobTable, TaskTable
 def create_eval_job(db: Session, prompts: list[str]) -> JobTable:
     """
     Creates a Job and its associated Tasks in a single transaction.
+
+    A Job is created with the "pending" status. Its created Tasks have the "pending" status.
     """
 
     db_job = JobTable(status = "pending")
@@ -39,5 +41,6 @@ def find_pending_task(db: Session) -> TaskTable:
     return (
         db.query(TaskTable)
         .filter(TaskTable.status == "pending")
+        .with_for_update(skip_locked=True) # ensures that if multiple workers query for pending tasks at the same time, they won't pick the same one
         .first()
     )

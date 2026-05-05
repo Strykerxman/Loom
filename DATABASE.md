@@ -95,7 +95,15 @@ Initially, `db_job.job_id = None` when it is created using `db_job = JobTable(..
 
 SQLAlchemy has a default setting `expire_on_commit = True`, causing this behavior, the safest choice possible as SQLAlchemy doesn't know what the database did behind its back when inserting the new row, like giving an ID.
 
-So there are expired attributes of data (i.e. `job_id`). How to update them instantly without having to create a new connection? A ***refresh*** is needed before closing the connection. This guarantees data is fetched while the Session is still open and it serves the updated data after it is committed (like a new `job_id`). SQLAlchemy runs a hidden `SELECT` when a refresh is called. It updates the affected Python objects. If there was no refresh, FastAPI would hand `db_job` to Pydantic (the `JobResponse` schema) and try to get `db_job.job_id`. It would then go into the database to find it, but it crashes as the Session is already closed. 
+So there are expired attributes of data (i.e. `job_id`). How to update them instantly without having to create a new connection? A ***refresh*** is needed before closing the connection. This guarantees data is fetched while the Session is still open and it serves the updated data after it is committed (like a new `job_id`). SQLAlchemy runs a hidden `SELECT` when a refresh is called. It updates the affected Python objects. If there was no refresh, FastAPI would hand `db_job` to Pydantic (the `JobResponse` schema) and try to get `db_job.job_id`. It would then go into the database to find it, but it crashes as the Session is already closed.
+
+### Concurrency
+
+Before adding `with_for_update(skip_locked=True)` to a SQL query, workers query the database at the same moment and they each pick up the same task. This is inefficient, it is better to lock rows that a worker has picked up so the next workers do not also pick it up.
+- `FOR UPDATE`: Locks a row.
+- `SKIP LOCKED`: Moves to the next available, unlocked row.
+
+The SQLAlchemy translation is `with_for_update(skip_locked=True)`. This turns the simple Python script into a robust, high-throughput distributed worker node.
 
 
 

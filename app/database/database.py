@@ -1,12 +1,13 @@
+import os
+from dotenv import load_dotenv
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine
 
-SQLITE_DATABASE_URL = "sqlite:///./loom.db"
+load_dotenv()
 
-engine = create_engine(
-    SQLITE_DATABASE_URL,
-    connect_args={"check_same_thread": False}
-    )
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./fallback.db")
+
+engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

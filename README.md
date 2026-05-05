@@ -38,16 +38,40 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 * Virtual Environment (recommended)
 
 ### Installation
-1. Clone the repository and navigate to the root directory.
+1. Clone the repository and navigate to the root directory.  
 2. Install dependencies:
    ```bash
-   pip install fastapi uvicorn sqlalchemy pydantic
-   ```
+   pip install fastapi uvicorn sqlalchemy pydantic dotenv pydantic-settings psycopg2-binary
+   ```  
 3. Start the application:
    ```bash
    uvicorn app.main:app --reload
+   ```  
+4. Access the interactive API documentation at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)  
+
+5. Start the Postgres Docker container:
+   ```bash
+   docker-compose up -d
+   ```  
+6. Create a simple POST request to start a job:
+   ```bash
+      curl -X 'POST' \
+      'http://127.0.0.1:8000/evaluate/start' \
+      -H 'accept: application/json' \
+      -H 'Content-Type: application/json' \
+      -d '{
+         "prompts": [
+            "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11", "p12", "p13", "p14", "p15", "p16", "p17", "p18", "p19", "p20"
+         ]
+      }'
    ```
-4. Access the interactive API documentation at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+   ***NOTE***: The current implementation mocks LLM responses by using `time.sleep(2)`. **No API calls are being made yet.**  
+    
+7. Deploy workers from the command prompt from the source directory (you may launch as many as desired):
+   ```bash
+   cd path/to/Loom
+   python -m app.worker
+   ```
 
 ## 🔌 API Reference
 

@@ -41,7 +41,7 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 1. Clone the repository and navigate to the root directory.  
 2. Install dependencies:
    ```bash
-   pip install fastapi uvicorn sqlalchemy pydantic dotenv pydantic-settings psycopg2-binary
+   pip install fastapi uvicorn sqlalchemy pydantic dotenv pydantic-settings psycopg2-binary requests
    ```  
 3. Start the application:
    ```bash
@@ -79,13 +79,13 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 ### `POST /eval/start`
 Submit a batch of prompts for evaluation. Returns a Claim Ticket (`job_id`) and task counts.
 * **Payload:** `{"prompts": ["prompt 1", "prompt 2"]}`
-* **Response:** `202 Accepted` | `{"job_id": 1, "status": "pending", "tasks": [], "total_tasks": 2, "completed_tasks": 0}`
+* **Response:** `202 Accepted` | `{"job_id": 1, "status": "pending", "tasks": [], "total_tasks": 2, "finished_tasks": 0, "failed_tasks": 0}`
 
 ### `GET /eval/status/{job_id}`
 Check the aggregate status of an existing evaluation job and its underlying tasks.
 * **Query Parameters:** `?include_tasks=true` (optional, defaults to false)
-* **Response (include_tasks=false):** `200 OK` | `{"job_id": 1, "status": "running", "tasks": [], "total_tasks": 2, "completed_tasks": 1}`
-* **Response (include_tasks=true):** `200 OK` | `{"job_id": 1, "status": "done", "tasks": [{"task_id": 1, "status": "done", "payload": {"prompt": "prompt 1"}, "response": {"text": "Echo: prompt 1", "model": "mock-llm"}, "evaluation_result": {"has_pii": false, "types": [], "matches": {}, "risk_score": 0.0}, "error_log": null}], "total_tasks": 2, "completed_tasks": 2}`
+* **Response (include_tasks=false):** `200 OK` | `{"job_id": 1, "status": "running", "tasks": [], "total_tasks": 2, "finished_tasks": 1, "failed_tasks": 0}`
+* **Response (include_tasks=true):** `200 OK` | `{"job_id": 1, "status": "done", "tasks": [{"task_id": 1, "status": "done", "payload": {"prompt": "prompt 1"}, "response": {"text": "Echo: prompt 1", "model": "mock-llm"}, "evaluation_result": {"has_pii": false, "types": [], "matches": {}, "risk_score": 0.0}, "error_log": null}], "total_tasks": 2, "finished_tasks": 2, "failed_tasks": 0}`
 * **Errors:** `404 Not Found` if the job does not exist.
 
 ---

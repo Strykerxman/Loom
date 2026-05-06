@@ -28,6 +28,8 @@ A pool can be resized dynamically (e.g., when demand exceeds the pre-defined num
 Connections are stored in local memory. It's a data structure in the RAM. It stores the state (is a transaction open?, where is the cursor?).  
 With SQLite, the database is a file on disk, not a remote server that can be connected to.
 
+*New learning*: use the `with` keyword when a Worker accesses the database, i.e. `with SessionLocal() as db` instead of `db = SessionLocal()`. The idea is that a worker should open a session and close it when work is done. This returns the connection to the pool. The initial code (`db = SessionLocal()`) creates a connection and keeps it open, because the worker is still looking for pending tasks. It ensures that transactions with the database use a new, fresh connection instead of a possibly stale one from an hour ago.
+
 ### Sessions & Transaction Logic
 --------------
 

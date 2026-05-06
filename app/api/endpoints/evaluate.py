@@ -23,7 +23,7 @@ def create_evaluation_job(request: EvalRequest, db: Session = Depends(get_db)):
             total_tasks = len(prompts),
             finished_tasks = 0,
             failed_tasks = 0
-        )
+        ) # tasks not included to improve performance, workers haven't booted up yet.
     
     except Exception:
         raise HTTPException(

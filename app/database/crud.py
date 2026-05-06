@@ -52,13 +52,6 @@ def get_total_tasks_for_job(db: Session, job_id: int) -> int:
     return db.query(func.count(TaskTable.task_id)).filter(TaskTable.parent_job_id == job_id).scalar()
 
 
-def get_completed_tasks_for_job(db: Session, job_id: int) -> int:
-    return db.query(func.count(TaskTable.task_id)).filter(
-        TaskTable.parent_job_id == job_id, 
-        TaskTable.status == "done"
-    ).scalar()
-
-
 def get_finished_tasks_for_job(db: Session, job_id: int) -> int:
     return db.query(func.count(TaskTable.task_id)).filter(
         TaskTable.parent_job_id == job_id, 
@@ -72,3 +65,9 @@ def get_running_tasks_for_job(db: Session, job_id: int) -> int:
         TaskTable.status == "running"
     ).scalar()
 
+
+def get_failed_tasks_for_job(db: Session, job_id: int) -> int:
+    return db.query(func.count(TaskTable.task_id)).filter(
+        TaskTable.parent_job_id == job_id, 
+        TaskTable.status == "failed"
+    ).scalar()

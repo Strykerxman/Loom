@@ -25,8 +25,7 @@ class JobResponse(BaseModel):
 
     job_id: int
     status: Literal["pending", "running", "done", "failed"]
-    tasks: list[TaskResponse] = Field(default_factory=list) # Lists are mutable, so we use default_factory to avoid shared mutable defaults. 
-    # Even if include_tasks=false, we want to return an empty list rather than None for consistency in the response schema, and it also simplifies the frontend handling of the response since they can always expect a list.    
-    total_tasks: int = 0 # Intentionally simple, avoids empty tasks list if include_tasks=false, and allows us to track progress even if we don't include task details in the response
+    tasks: list[TaskResponse] = Field(default_factory=list)
+    total_tasks: int = 0
     finished_tasks: int = 0 # status in ["done", "failed"]
     failed_tasks: int = 0 # status = "failed"

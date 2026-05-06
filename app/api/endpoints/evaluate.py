@@ -18,10 +18,11 @@ def create_evaluation_job(request: EvalRequest, db: Session = Depends(get_db)):
         db_job: JobTable = crud.create_eval_job(db=db, prompts=prompts)
         
         return JobResponse(
-            job_id=db_job.job_id,
-            status=db_job.status,
-            total_tasks=len(prompts),
-            completed_tasks=0
+            job_id = db_job.job_id,
+            status = db_job.status,
+            total_tasks = len(prompts),
+            finished_tasks = 0,
+            failed_tasks = 0
         )
     
     except Exception:
@@ -48,26 +49,31 @@ def get_evaluation_job_status_from_id(job_id: int, include_tasks: bool = False, 
             detail=f"Job with ID {job_id} not found."
         )
     
+    # These return integers, not the Tasks themselves!
     total_tasks = crud.get_total_tasks_for_job(db=db, job_id=job_id)
-    completed_tasks = crud.get_completed_tasks_for_job(db=db, job_id=job_id)
-    finished_tasks = crud.get_finished_tasks_for_job(db=db, job_id=job_id)
     running_tasks = crud.get_running_tasks_for_job(db=db, job_id=job_id)
+    finished_tasks = crud.get_finished_tasks_for_job(db=db, job_id=job_id) # "done" or "failed" tasks
+    failed_tasks = crud.get_failed_tasks_for_job(db=db, job_id=job_id)
 
     if total_tasks == 0: # Edge case, shouldn't happen as we create jobs with at least 1 task, but good to handle just in case
         job_status = "pending"
+
     elif finished_tasks == total_tasks:
         job_status = "done"
-    elif running_tasks > 0 or finished_tasks != completed_tasks:
+
+    elif running_tasks > 0 or finished_tasks > 0:
         job_status = "running" # Some tasks are done/failed, or a worker is currently processing one
+        
     else:
         job_status = "pending" # No tasks have started yet
 
     return JobResponse(
-        job_id=db_job.job_id,
-        status=job_status,
-        tasks=db_job.tasks if include_tasks else [],
-        total_tasks=total_tasks,
-        completed_tasks=completed_tasks
+        job_id = db_job.job_id,
+        status = job_status,
+        tasks = db_job.tasks if include_tasks else [], # Empty list for consistency with JobResponse model
+        total_tasks = total_tasks,
+        finished_tasks = finished_tasks,
+        failed_tasks = failed_tasks
     )
 
     # The response is different from the POST endpoint (len(prompts) vs total_tasks) because the GET endpoint is meant to reflect the current state of the job in the database, which may have changed since the job was created. 

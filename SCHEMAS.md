@@ -4,13 +4,17 @@ The `Field` function is used to provide additional metadata and validation for f
 
 For example, the `ge` parameter checks that an inputted value is **greater or equal** to a certain value. This is useful for the `risk_score`, bounding it to the interval ${[0.0, 1.0]}$. The `default_factory` parameter is used to set a default value for a field that is mutable (like lists or dictionaries). This prevents the common pitfall of using mutable default arguments, which can lead to unexpected behavior due to shared state across instances. In our case, we use `default_factory=list` to ensure that each instance of `JobResponse` gets its own separate list of tasks. The `Field` function is used to provide additional metadata and validation for fields in Pydantic models. It allows us to specify constraints, default values, and other properties for the fields in our data models.  
 
+(OLD) **Solution:** use `total_tasks: int = Field(ge=0, default=0)` and `finished_tasks: int = Field(ge=0, default=0)` as fields in the `JobResponse` model.
+
+(NEW) **Solution**: the new code doesn't implement this because of the `include_tasks` query. Simplified to `int = 0`. Also, `Fields` are more useful for **user input validation**. These aren't from the user, it's data gathered from the database.  
+***However***, `tasks: list[TaskResponse] = Field(default_factory=list)` enables the graceful instantiation of a list of tasks when `include_tasks` is `True` and an empty list when `include_tasks` is `False`.  
+
+
 ### Properties
 
 The `@property` decorator is used to define a method that can be accessed like an attribute. For example, the `total_tasks` property in the `JobResponse` model calculates the total number of tasks by returning the length of the `tasks` list. This allows us to easily access the total number of tasks without having to manually calculate it each time. The `completed_tasks` property similarly counts how many tasks have a status of "done". These properties provide a convenient way to access derived information about the job without needing to store it as separate fields.
 
 An issue arises if a user creates a Job with 1,000,000 Tasks (a ***heavy payload*** problem). The `total_tasks` and `completed_tasks` properties would require iterating through the entire list of tasks to calculate their values, which could lead to performance issues. In a real-world application, it would be more efficient to store these counts as separate fields in the database and update them as tasks are added or completed, rather than calculating them on the fly from the list of tasks. Also, if `include_tasks` is `False`, the `self.tasks` list is an empty list. The property would say `total_tasks = 0`, lying to the client.  
-
-**Solution:** use `total_tasks: int = Field(ge=0, default=0)` and `completed_tasks: int = Field(ge=0, default=0)` as fields in the `JobResponse` model.
 
 **Pros:**
 - A database query can answer the questions by giving the counts directly (`SELECT COUNT(*) FROM tasks`) without "downloading" the task data.
@@ -30,3 +34,4 @@ That would look like:
 db_job = db.query(JobTable).filter(JobTable.job_id == job_id).first()
 response = JobResponse.from_orm(db_job)
 ```
+

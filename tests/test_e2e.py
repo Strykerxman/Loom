@@ -2,6 +2,9 @@ import requests
 import time
 import sys
 
+# Run this test by instantiating a worker (see README.md) and make sure a server is running (db + fastapi).
+# Then go into another command line and run `python tests/test_e2e.py` from the Loom directory (/path/to/Loom)
+
 BASE_URL = "http://127.0.0.1:8000"
 
 def run_e2e_test():
@@ -50,18 +53,15 @@ def run_e2e_test():
         total = data["total_tasks"]
         finished = data["finished_tasks"]
         failed = data["failed_tasks"]
-
-        if finished == total: # exit the loop quickly when all tasks are finished processing
-            break
         
-        print(f"   [{attempts+1}/{max_attempts}] Status: {status} | Progress: {finished}/{total}")
+        print(f"\r   [{attempts+1}/{max_attempts}] Status: {status} | Progress: {finished}/{total}", end="\r", flush=True)
         
-        if status in ["done", "failed"]:
-            print("\n✅ Job finished processing!")
+        if finished == total or status in ["done", "failed"]:
+            sys.stdout.write("\033[K")
+            print(f"\r   ✅ Job finished processing! Failed: {failed}/{total}")
             break
         time.sleep(2)
         attempts += 1
-
         
         
     if attempts == max_attempts:
@@ -70,7 +70,7 @@ def run_e2e_test():
 
     # 3. Validate the actual PII results
     print("\n🔍 Validating Task Results...")
-    response = requests.get(f"{BASE_URL}/eval/status/{job_id}?include_tasks=true") # false to improve performance
+    response = requests.get(f"{BASE_URL}/eval/status/{job_id}?include_tasks=true") # one check with true to 
     response.raise_for_status()
 
     data = response.json()
@@ -81,14 +81,25 @@ def run_e2e_test():
         sys.exit(1)
         
     for task in tasks:
-        print(f"   Task ID: {task['task_id']}")
-        print(f"   - Prompt: {task['payload'].get('prompt')}")
-        eval_result = task.get("evaluation_result", {})
-        print(f"   - PII Found: {eval_result.get('has_pii')}")
-        if eval_result.get("has_pii"):
-            print(f"   - PII Matches: {eval_result.get('matches')}")
-        print("   ---")
+       status = task["status"]
+       print(f"   Task ID: {task['task_id']} | Status: {status}")
+       print(f"   - Prompt: {task['payload'].get('prompt')}")
 
+       eval_result = task.get("evaluation_result") or {}
+
+       if status == "done":
+           print(f"   - PII Found: {eval_result.get('has_pii')}")
+           if eval_result.get("has_pii"):
+               print(f"   - PII Matches: {eval_result.get('matches')}")
+       elif status == "failed":
+           print(f"   - Failed with error: {task.get('error_log')}")
+       else:
+           print("   - Not terminal (unexpected in final fetch)")
+       print("   ---")
+
+    total = data["total_tasks"]
+    finished = data["finished_tasks"]
+    failed = data["failed_tasks"]
     assert 0 <= failed <= finished <= total
 
     print("\n🎉 E2E Test Complete!")

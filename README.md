@@ -21,15 +21,15 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 
 ## 💻 Tech Stack
 
-**Current (Phase 1: Foundation)**
+**Current (Phase 1 & 2: Distributed Foundation)**
 * **Web Framework:** FastAPI
 * **ORM & Database:** SQLAlchemy + PostgreSQL (Local Docker)
 * **Data Validation:** Pydantic
+* **Evaluation Engine:** Isolated Python service (Regex-based PII detection)
 
-**Roadmap (Phase 2 & 3: Distributed Execution)**
-* **Database:** PostgreSQL (for row-level locking and concurrency)
-* **Message Broker:** Redis + Celery (Task Queueing)
-* **High-Performance Workers:** Rust (Regex-based PII scrubbing engine)
+**Roadmap (Phase 3: LLM Integration)**
+* **Message Broker:** Redis + Celery (Optional Task Queueing upgrade)
+* **AI Integration:** OpenAI / Anthropic SDK for prompt execution
 
 ## 🚀 Getting Started
 
@@ -79,11 +79,13 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 ### `POST /eval/start`
 Submit a batch of prompts for evaluation. Returns a Claim Ticket (`job_id`) and task counts.
 * **Payload:** `{"prompts": ["prompt 1", "prompt 2"]}`
-* **Response:** `202 Accepted` | `{"job_id": 1, "status": "pending", "total_tasks": 2, "completed_tasks": 0}`
+* **Response:** `202 Accepted` | `{"job_id": 1, "status": "pending", "tasks": [], "total_tasks": 2, "completed_tasks": 0}`
 
 ### `GET /eval/status/{job_id}`
 Check the aggregate status of an existing evaluation job and its underlying tasks.
-* **Response:** `200 OK` | `{"job_id": 1, "status": "running", "total_tasks": 2, "completed_tasks": 1}`
+* **Query Parameters:** `?include_tasks=true` (optional, defaults to false)
+* **Response (include_tasks=false):** `200 OK` | `{"job_id": 1, "status": "running", "tasks": [], "total_tasks": 2, "completed_tasks": 1}`
+* **Response (include_tasks=true):** `200 OK` | `{"job_id": 1, "status": "done", "tasks": [{"task_id": 1, "status": "done", "payload": {"prompt": "prompt 1"}, "response": {"text": "Echo: prompt 1", "model": "mock-llm"}, "evaluation_result": {"has_pii": false, "types": [], "matches": {}, "risk_score": 0.0}, "error_log": null}], "total_tasks": 2, "completed_tasks": 2}`
 * **Errors:** `404 Not Found` if the job does not exist.
 
 ---

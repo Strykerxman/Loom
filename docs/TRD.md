@@ -1,6 +1,6 @@
 # Loom – TRD (Remaining Work)
 
-_Last updated: 2026-05-06_
+_Last updated: 2026-05-08_
 
 ## 0) Current Baseline (Done)
 - Job/Task architecture with fan-out/fan-in
@@ -12,6 +12,7 @@ _Last updated: 2026-05-06_
 - `SKIP LOCKED` task claiming for multi-worker concurrency
 - Python PII evaluator (email detection) + persisted `evaluation_result`
 - Lightweight E2E script
+- **Phase 1.1 in progress:** Claim/try separation for session safety (claim commits separately; exceptions rollback only the work, not the claim)
 
 ---
 
@@ -28,20 +29,21 @@ Rust is a good fit for this project **only after** we stabilize contracts and pr
 Goal: eliminate fragility before adding new runtime components.
 
 ### 1.1 Worker session safety
-- Use short-lived DB session per loop iteration (or per claimed task).
-- Ensure `rollback()` on all exception paths.
+- ✅ **(In Progress)** Claim task → commit → try work. On exception, rollback only the work, not the claim.
+- ✅ Session per loop iteration with explicit rollback on all DB error paths.
 - Prevent permanently stuck `running` tasks during normal failures.
 
 **Acceptance**
-- Worker runs 30+ min under load without transaction/session drift.
+- ✅ Code structure prevents claim drift.
+- ⏳ **TODO:** Load test worker 30+ min to confirm no transaction leaks or session thrashing.
 
 ### 1.2 Status contract hardening
-- Add `failed_tasks` to `JobResponse`.
-- Keep aggregate counters sourced from DB counts, not task list length.
-- Keep `tasks` optional payload via `include_tasks`.
+- ✅ `failed_tasks` in `JobResponse`.
+- ✅ Aggregate counters sourced from DB counts, not task list length.
+- ✅ `tasks` optional payload via `include_tasks`.
 
 **Acceptance**
-- `completed_tasks + failed_tasks <= total_tasks` always true.
+- ✅ `completed_tasks + failed_tasks <= total_tasks` always true.
 
 ### 1.3 Migration discipline
 - Introduce Alembic.
@@ -146,6 +148,8 @@ Goal: production readiness.
 ---
 
 ## 4) Immediate Next 3 Tasks (Do these next)
-1. Add `failed_tasks` to API/schema + counts in GET status.
-2. Refactor worker to short-lived session + rollback safety.
-3. Add Alembic initial migration and migration docs.
+1. ⏳ Load test worker 30+ min under concurrency to confirm Phase 1.1 session safety (no leaks, no drift).
+2. ⏳ Introduce Alembic, create initial migration from current models, document in README.
+3. ⏳ Create `app/services/llm_client.py` interface: mock + one real provider (OpenAI or Anthropic) via `USE_REAL_LLM=true` env flag.
+   - Acceptance: Worker can run both modes without code changes.
+   - Persist `latency_ms` and `model` in `TaskTable.response`.

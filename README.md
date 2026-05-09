@@ -27,9 +27,15 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 * **Data Validation:** Pydantic
 * **Evaluation Engine:** Isolated Python service (Regex-based PII detection)
 
-**Roadmap (Phase 3: LLM Integration)**
+**Phase 2 (In Progress: Functional Completeness)**
+* **LLM Client Abstraction:** Mock + one real provider (OpenAI/Anthropic) via env flags
+* **Expanded Evaluators:** Phone, SSN, credit-card detection
+* **Crash Recovery:** Task timestamps + orphan reaper
+
+**Roadmap (Phase 3+: Scale & Ops)**
 * **Message Broker:** Redis + Celery (Optional Task Queueing upgrade)
-* **AI Integration:** OpenAI / Anthropic SDK for prompt execution
+* **Structured Logging:** Traceability via `job_id`, `task_id`, state transitions
+* **Performance Layer:** Rust sidecar for PII scanning (post-benchmark gate)
 
 ## 🚀 Getting Started
 
@@ -66,7 +72,7 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
          ]
       }'
    ```
-   ***NOTE***: The current implementation mocks LLM responses by using `time.sleep(2)`. **No API calls are being made yet.**  
+   ***NOTE***: The current implementation mocks LLM responses by using `time.sleep(2)`. **No real API calls are being made yet.** See [TRD.md](docs/TRD.md) for Phase 2 LLM integration roadmap.  
 
 7. Deploy workers from the command prompt from the source directory (you may launch as many as desired):
    ```bash

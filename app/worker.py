@@ -33,11 +33,12 @@ def run_worker():
                 else:
                     print(f"\nWorker picked up Task ID: {task.task_id}")
 
-                    try:
-                        idle_since = None 
-                        task.status = "running"
-                        db.commit() # Performs an UPDATE to the database, no new ID to fetch or anything, claim transaction
+                    # Claim task
+                    idle_since = None 
+                    task.status = "running"
+                    db.commit() # Releases SKIP LOCKED, task is now officially ours
 
+                    try:
                         prompt = task.payload["prompt"]
 
                         time.sleep(random.randint(2, 5)) # Simulate variable LLM processing time
@@ -54,7 +55,7 @@ def run_worker():
                         print(f"    ✅ Task ID {task.task_id} done! ")
 
                     except Exception as e:
-                        db.rollback() # to undo status change from "running" to "pending" so it can be retried.
+                        db.rollback() # to undo status change from "running" to "pending" so it can be retried
 
                         task.retry_count += 1
                         task.error_log = str(e)

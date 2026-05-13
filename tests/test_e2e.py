@@ -1,11 +1,12 @@
 import requests
 import time
 import sys
-
+from scripts.worker_utils import spawn_workers, stop_workers
 # Run this test by instantiating a worker (see README.md) and make sure a server is running (db + fastapi).
 # Then go into another command line and run `python tests/test_e2e.py` from the Loom directory (/path/to/Loom)
 
 BASE_URL = "http://127.0.0.1:8000"
+AUTOSPAWN_WORKERS = 3
 
 def run_e2e_test():
     print("🚀 Starting Loom E2E Test...")
@@ -21,6 +22,9 @@ def run_e2e_test():
     
     print("\n📦 POST /eval/start")
     try:
+        # capture worker logs into files to avoid interleaving with test console output
+        workers = spawn_workers(AUTOSPAWN_WORKERS, capture_logs=True, stream_to_console=False)
+        
         response = requests.post(f"{BASE_URL}/eval/start", json=payload)
         response.raise_for_status()
 
@@ -39,7 +43,7 @@ def run_e2e_test():
 
     # 2. Poll the status endpoint until the job is done
     print("\n⏳ Polling GET /eval/status/{job_id} for completion...")
-    max_attempts = 15
+    max_attempts = 30
     attempts = 0
     
     while attempts < max_attempts:
@@ -62,7 +66,6 @@ def run_e2e_test():
             break
         time.sleep(2)
         attempts += 1
-        
         
     if attempts == max_attempts:
         print("\n⚠️ WARNING: Polling timed out. Are your workers running? (`python -m app.worker`)")
@@ -101,6 +104,16 @@ def run_e2e_test():
     finished = data["finished_tasks"]
     failed = data["failed_tasks"]
     assert 0 <= failed <= finished <= total
+
+    if 'workers' in locals() and workers:
+        stop_workers(workers)
+
+    # Optionally print where logs were written
+    if 'workers' in locals() and workers:
+        print("\nWorker logs:")
+        for worker in workers:
+            if worker.log_path is not None:
+                print(f" - {worker.log_path}")
 
     print("\n🎉 E2E Test Complete!")
 

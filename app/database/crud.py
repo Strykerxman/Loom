@@ -48,6 +48,37 @@ def find_pending_task(db: Session) -> TaskTable:
     )
 
 
+def mark_task_running(db: Session, task_id: int) -> None:
+    db.query(TaskTable).filter(TaskTable.task_id == task_id).update({TaskTable.status: "running"})
+    db.commit()
+
+
+def mark_task_as_done(db: Session, task_id: int, response: dict, pii_eval: dict) -> None:
+    db.query(TaskTable).filter(TaskTable.task_id == task_id).update({
+        TaskTable.status: "done",
+        TaskTable.response: response,
+        TaskTable.evaluation_result: pii_eval
+    })
+    db.commit()
+
+
+def mark_task_as_failed_or_retry(db: Session, task_id: int, error, max_retries: int = 3) -> None:
+    task = db.query(TaskTable).filter(TaskTable.task_id == task_id).first()
+
+    if task is None:
+        return
+    
+    task.retry_count = (task.retry_count or 0) + 1
+    task.error_log = str(error)
+
+    if task.retry_count >= max_retries:
+        task.status = "failed"
+    else:
+        task.status = "pending"
+
+    db.commit()
+    
+
 def get_total_tasks_for_job(db: Session, job_id: int) -> int:
     return db.query(func.count(TaskTable.task_id)).filter(TaskTable.parent_job_id == job_id).scalar()
 

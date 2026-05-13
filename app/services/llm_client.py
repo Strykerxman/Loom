@@ -16,8 +16,8 @@ class LLMClient(Protocol):
 
 @dataclass # not frozen as may be modified directly in testing
 class MockLLMClient:
-    failure_rate: float = 0.3,
-    min_latency_ms: int = 2000,
+    failure_rate: float = 0.3
+    min_latency_ms: int = 2000
     max_latency_ms: int = 5000
     
     def complete(self, prompt: str) -> LLMResult:

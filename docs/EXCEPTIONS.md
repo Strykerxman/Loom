@@ -31,3 +31,7 @@ except Exception as e:
  ```
 
 Excepting any exception serves as a security measure. If `create_eval_job()` fails, it throws some raw SQLAlchemy errors. FastAPI will spew out a raw `500` error with no useful information, or worse, expose database stack traces to the client. Catching any exception allows the developer to control what the client sees.
+
+### Nested try-except
+
+In [worker_utils.py](scripts/worker_utils.py), there is a nested try block. The reason is that we first wait for a worker to stop gracefully and a `TimeoutExpired` exception may be raised so we catch it. The next step is it to forcefully kill it and wait for it to be killed by the OS. Another `TimeoutExpired` exception can be raised **within** the initial try block, so we nest a new try block to catch that same exception. IF we do catch it, we simply ignore it and move on.

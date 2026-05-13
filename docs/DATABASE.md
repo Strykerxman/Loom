@@ -13,6 +13,30 @@ It's an **Object-Relational Mapper** (ORM)
 
 > SQLite database for early implementation, saves Postgres/Docker boilerplate.
 
+### Alembic Migrations
+--------------
+
+Alembic owns database schema changes. The FastAPI app should not create tables on startup with `Base.metadata.create_all()` once migrations exist.
+
+Core commands:
+
+```bash
+alembic upgrade head                  # apply migrations
+alembic downgrade -1                  # roll back one migration
+alembic revision --autogenerate -m "message"  # create a new migration from model changes
+```
+
+Migration files live in `alembic/versions/`. Each migration has an `upgrade()` and a `downgrade()` function.
+
+The first Loom migration creates the current `jobs` and `tasks` tables. Future schema changes, such as task timestamps or provider metadata, should be added through new migrations.
+
+Existing local databases created before Alembic need one of two paths:
+
+- Reset the local Docker volume, then run `alembic upgrade head`.
+- Keep the existing tables and run `alembic stamp head` to mark the current schema as already applied.
+
+Use reset for disposable dev data. Use stamp when keeping existing local rows matters.
+
 ### Connection Pooling
 --------------
 
@@ -55,32 +79,6 @@ When we create an ***engine***, it allows a connection to a database and creates
 - **Isolation:** transactions can happen at the same time (or seemingly) and shouldn't interfere with each other.  
 - **Durability:** 
 
-### Threads
---------------
-
-A thread is the smallest sequence of programmed instructions that a CPU can manage independently. The CPU switches between threads very quickly, so it looks like multiple are working at once, even though the CPU is just jumping from one thread to another (very quickly, some milliseconds).  
-An app's "down time" is usually due to I/O operations, like waiting for a database response. In a single-threaded program, the entire program must wait for the execution to finish before continuing. In multi-threaded programs, another thread can work on something else while waiting for that database connection, for example.  
-
-**Memory:** threads share the same memory space. They share the same pointers to addresses in memory. Therefore, they don't need to copy big data from registers for each operation, they have the addresses of the data already. This reduces RAM usage, threads don't need private copies of the entire program's data. Furthermore, threads can see the engine object in memory. When Thread A calls `session.add(job)`, the CPU is executing instructions in the context of Thread A, but it modifies bits at the memory address of that shared connection (engine) object.
-
-**Downside:** when multiple threads are working, they may overlap and rewrite one-another's data, a ***race condition***. This leads to corruption if multiple threads want to write to the same byte in RAM at the same time.  
-*Note:* threads are writing to the database from a single connection here.  
-
-Pooling solves this by creating separate spaces in memory, the connection memory address isn't shared, many are made. Thread A can connect to the `Connection_01` address in memory, marking it now as "busy". Another working thread, Thread B, asks for a connection. The pool sees `Connection_01` is busy, so it gives it a new connection, `Connection_02`. They can now both write without corruption.
-
-This made me think: how can this be parallel execution? Well operations that don't require writes are done in parallel, reading from the database is completely fine and done in parallel by multiple threads with specific instructions.
-
-**Example:**    
-Thread A can fetch data from an API, parse JSON and create some structure with it (CPU/Network intensive).  
-Thread B can validate a password using the database, a read.  
-> This is parallel, each thread has its own memory space to perform work from pooling, but share RAM (database settings, connection pool, metadata, etc.).  
-
-However, parallelism is an illusion when it comes to `.commit()` in SQLite. Threads need to wait for the other to complete its write before doing its own write. This follows the **Isolation** principle.  
-Postgres solves this by being a server with multiple processes. It doesn't directly write to a row in the database, it creates a new draft of the row. The original one is marked as *expired*, but can still be read from other connections, allowing operations to continue.
-
-**SQLITE:**
-- `connect_args={"check_same_thread": False}`: non-default; SQLite prevents sharing a connection across multiple threads by default, i.e. when `True`. When only one thread is in use, a user may have to wait and sit in front of a loading screen, waiting for that thread to finish its execution (math, data processing, etc.). This tells SQLite that we *know* multiple threads may touch the database and that it's allowed.
-
 ### Adding, Committing, Refreshing
 
 An entry is added to the stage, it gets committed and is then returned. [crud.py](app/database/crud.py)
@@ -111,5 +109,17 @@ The SQLAlchemy translation is `with_for_update(skip_locked=True)`. This turns th
 
 When a Job is deleted, we want all of its Tasks to be deleted as well. This is called ***cascading deletes***. It prevents orphaned records (tasks without a parent job) and keeps the database clean. In SQLAlchemy, this is achieved by setting `cascade="all, delete-orphan"` in the relationship definition between Job and Task models. This means that when a Job is deleted, all associated Tasks will also be automatically deleted from the database. 
 
+### Derived Job Status
 
+`JobTable.status` is set to `pending` when a job is created. The API status endpoint does not rely only on that stored value.
+
+The current status response is derived from related task rows:
+
+- `pending`: no task has started.
+- `running`: at least one task is running, done, or failed, but not all tasks are finished.
+- `done`: all tasks are terminal, either `done` or `failed`.
+
+A failed task does not automatically make the job failed. In Loom, task failure is evaluation data. Job status describes pipeline progress.
+
+This means a job stuck at `pending` usually means no task moved out of `pending`. Debug worker startup, task claiming, and task state updates before changing `JobTable.status`.
 

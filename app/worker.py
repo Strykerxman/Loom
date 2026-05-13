@@ -1,85 +1,88 @@
-import random
 import time
-from .database.database import SessionLocal
-from .database.crud import find_pending_task
+from sqlalchemy.orm import Session
+from collections.abc import Callable
+
+from .database.crud import find_pending_task, mark_task_running, mark_task_as_done, mark_task_as_failed_or_retry
+from app.database.database import SessionLocal as DefaultSessionLocal
 from .services.evaluator import evaluate_pii
+from app.models.models import TaskTable
+from app.services.llm_client import LLMClient, MockLLMClient
+
 
 WORKER_IDLE_TIMEOUT = 60 * 10 # 10 minutes
 WORKER_SLEEP_INTERVAL = 1 # 1 second, short so we can make sure we pick up tasks quickly, but not too short to avoid hammering the database when idle
 DB_BACKOFF_INTERVAL = 5
+MAX_RETRIES = 3
 
-def run_worker():
+
+def run_worker(sessionfactory: Callable[[], Session], llm_client: LLMClient | None = None):
     idle_since: float | None = None
+    llm_client = llm_client or MockLLMClient()
 
     print("Worker started. Listening for tasks...")
 
     while True:
         sleep_for: int | None = None
 
-        with SessionLocal() as db:
-            try:
+        try:
+            with sessionfactory() as db:
                 task = find_pending_task(db=db)
 
-                if not task:
+                if task is not None:
+                    idle_since = None
+                    process_task(db, task, llm_client)
+
+                else:
                     if idle_since is None:
                         idle_since = time.monotonic()
-                      
+                    
                     elif (time.monotonic() - idle_since >= WORKER_IDLE_TIMEOUT):
-                        print("Worker has been idle for too long, shutting down.")
+                        print("\nWorker has been idle for too long, shutting down.")
                         return
 
                     sleep_for = WORKER_SLEEP_INTERVAL
 
-                else:
-                    print(f"\nWorker picked up Task ID: {task.task_id}")
-
-                    # Claim task
-                    idle_since = None 
-                    task.status = "running"
-                    db.commit() # Releases SKIP LOCKED, task is now officially ours
-
-                    try:
-                        prompt = task.payload["prompt"]
-
-                        time.sleep(random.randint(2, 5)) # Simulate variable LLM processing time
-                        if random.random() < 0.3: # 30% chance of failure to test retry mechanism
-                            print(f"    An error has occurred while calling the LLM.")
-                            raise ValueError("Simulated task failure")
-                        
-                        mock_response = f"Echo: {prompt}"
-                        pii_eval = evaluate_pii(text=mock_response)
-                        task.response = {"text": mock_response, "model": "mock-llm"}
-                        task.evaluation_result = pii_eval.model_dump()
-                        task.error_log = None
-                        task.status = "done" # Update the task status to "done" in the database, no error was raised, so we consider the task successfully completed
-                        print(f"    ✅ Task ID {task.task_id} done! ")
-
-                    except Exception as e:
-                        db.rollback() # to undo status change from "running" to "pending" so it can be retried
-
-                        task.retry_count += 1
-                        task.error_log = str(e)
-
-                        if task.retry_count >= 3:
-                            task.status = "failed"
-                            print(f"    ❌ Task ID {task.task_id} failed permanently ({task.retry_count}/3)")
-
-                        else:
-                            task.status = "pending"
-                            print(f"    ⚠️ Task ID {task.task_id} retry scheduled ({task.retry_count}/3)")
-                    
-                    db.commit() # Finalize transaction, update its status to either done if success, pending if to be tried again and failed if max retries 
-                    print(f"    Updating task status={task.status}.")
-
-            except Exception as db_e:
-                print(f"Database session error. Check connections or try again later.")
-                db.rollback()
-                sleep_for = DB_BACKOFF_INTERVAL
+        except Exception as db_e:
+            print(f"Database session error. Check connections or try again later: {str(db_e)}")
+            sleep_for = DB_BACKOFF_INTERVAL
             
         if sleep_for is not None:
             time.sleep(sleep_for)
             sleep_for = None
 
+def process_task(db: Session, task: TaskTable, llm_client: LLMClient) -> None:
+    """Processing logic for handling a single task."""
+
+    task_id = task.task_id
+    prompt = get_prompt(task)
+
+    mark_task_running(db, task_id)
+
+    try:
+        result = llm_client.complete(prompt)
+        pii_eval = evaluate_pii(result.text)
+
+        response_payload = { # construct a response payload
+            "text": result.text,
+            "model": result.model,
+            "latency_ms": result.latency_ms
+        }
+
+        mark_task_as_done(db, task_id, response_payload, pii_eval.model_dump())
+
+    except Exception as e:
+        db.rollback()
+        mark_task_as_failed_or_retry(db, task_id, e, MAX_RETRIES)
+
+
+def get_prompt(task: TaskTable) -> str:
+    """Extracts the prompt from the task payload. Can be extended to support more complex logic."""
+    prompt = task.payload.get("prompt")
+
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ValueError(f"Task {task.task_id} has invalid or missing 'prompt' in payload")
+
+    return prompt
 
 if __name__ == "__main__":
-    run_worker()
+    run_worker(DefaultSessionLocal)

@@ -8,7 +8,7 @@ class JobTable(Base):
 
     job_id = Column(Integer, primary_key=True, index=True) # Stores the ID of a given Job, primary key and indexed for quick lookups
     status = Column(String, default="pending", nullable=False) # Stores status of a given Job
-    created_at = Column(DateTime, server_default=func.now()) # Stores time at which a Job was created, may be indexed later on, but not critical
+    created_at = Column(DateTime, server_default=func.now(), nullable=False) # Stores time at which a Job was created, may be indexed later on, but not critical
 
     tasks = relationship("TaskTable", back_populates='job', cascade="all, delete-orphan")
 
@@ -21,7 +21,7 @@ class TaskTable(Base):
     __tablename__ = 'tasks'
 
     task_id = Column(Integer, primary_key=True, index=True) # Stores the ID of a given Task
-    parent_job_id = Column(Integer, ForeignKey('jobs.job_id', ondelete="CASCADE"), nullable=False) # Stores the ID of the Job that contains this Task
+    parent_job_id = Column(Integer, ForeignKey('jobs.job_id', ondelete="CASCADE"), nullable=False, index=True) # Stores the ID of the Job that contains this Task
     payload = Column(JSONB, nullable=False) # {"prompt": prompt}, nullable=False because we need the prompt to process the task, and it should always be provided when we create a Task in the database
     response = Column(JSONB) # {"text": mock_response, "model": "mock-llm"}
 
@@ -29,6 +29,11 @@ class TaskTable(Base):
 
     error_log = Column(String)
     retry_count = Column(Integer, default=0, nullable=False)
-    status = Column(String, default="pending", nullable=False)
+    status = Column(String, default="pending", nullable=False, index=True)
+
+    created_at = Column(DateTime, server_default=func.now(), nullable=False) # should always exist
+    updated_at = Column(DateTime, server_default=func.now(), nullable=False) # should always exist, no onupdate because its bound to SQLAlchemy
+    started_at = Column(DateTime, nullable=True) # does not exist until claimed
+    completed_at = Column(DateTime, nullable=True) # does not exist until terminal
 
     job = relationship("JobTable", back_populates='tasks')

@@ -2,18 +2,22 @@ import requests
 import time
 import sys
 import os
+
+import pytest
+
 from app.config import load_env
 from scripts.worker_utils import spawn_workers, stop_workers
-# Run this test by instantiating a worker (see README.md) and make sure a server is running (db + fastapi).
-# Then go into another command line and run `python tests/test_e2e.py` from the Loom directory (/path/to/Loom)
 
+# Pytest path: `pytest --run-e2e tests/test_e2e.py -s` starts DB + Uvicorn automatically.
+# Manual path: start DB + Uvicorn yourself, then run `python tests/test_e2e.py`.
 os.environ.setdefault("ENV_FILE", ".env.test")
 load_env(override=True)
 
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8001")
 AUTOSPAWN_WORKERS = 3
 
-def run_e2e_test():
+
+def run_e2e_test(base_url: str = BASE_URL):
     print("🚀 Starting Loom E2E Test...")
 
     # 1. Create a new job with test prompts (some with PII, some clean)
@@ -29,7 +33,7 @@ def run_e2e_test():
     
     print("\n📦 POST /eval/start")
     try:
-        response = requests.post(f"{BASE_URL}/eval/start", json=payload, timeout=5)
+        response = requests.post(f"{base_url}/eval/start", json=payload, timeout=5)
         response.raise_for_status()
 
         job_data = response.json()
@@ -48,7 +52,7 @@ def run_e2e_test():
         
         while attempts < max_attempts:
 
-            response = requests.get(f"{BASE_URL}/eval/status/{job_id}?include_tasks=false", timeout=5) # false to improve performance
+            response = requests.get(f"{base_url}/eval/status/{job_id}?include_tasks=false", timeout=5) # false to improve performance
             response.raise_for_status()
 
             data = response.json()
@@ -73,7 +77,7 @@ def run_e2e_test():
 
         # 3. Validate the actual PII results
         print("\n🔍 Validating Task Results...")
-        response = requests.get(f"{BASE_URL}/eval/status/{job_id}?include_tasks=true", timeout=5) # one check with true to 
+        response = requests.get(f"{base_url}/eval/status/{job_id}?include_tasks=true", timeout=5) # one check with true to 
         response.raise_for_status()
 
         data = response.json()
@@ -106,7 +110,7 @@ def run_e2e_test():
         assert 0 <= failed <= finished <= total
     
     except requests.exceptions.RequestException as e:
-        print("❌ ERROR: FastAPI request failed: {e}")
+        print(f"❌ ERROR: FastAPI request failed: {e}")
         sys.exit(1)
     except Exception as e:
         print(f"❌ ERROR: E2E test failed: {e}")
@@ -121,6 +125,12 @@ def run_e2e_test():
                     print(f" - {worker.log_path}")
 
     print("\n🎉 E2E Test Complete!")
+
+
+@pytest.mark.e2e
+def test_e2e_pipeline(uvicorn_server):
+    run_e2e_test(uvicorn_server)
+
 
 if __name__ == "__main__":
     run_e2e_test()

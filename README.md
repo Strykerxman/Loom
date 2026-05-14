@@ -47,20 +47,25 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
 1. Clone the repository and navigate to the root directory.  
 2. Install dependencies:
    ```bash
-   pip install fastapi uvicorn sqlalchemy pydantic dotenv pydantic-settings psycopg2-binary requests
+   pip install fastapi uvicorn sqlalchemy pydantic python-dotenv pydantic-settings psycopg2-binary requests alembic pytest
    ```  
-3. Start the application:
-   ```bash
-   uvicorn app.main:app --reload
-   ```  
-4. Access the interactive API documentation at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)  
-
-5. Start the Postgres Docker container:
+3. Start the Postgres Docker container:
    ```bash
    docker-compose up -d
    ```
    ***NOTE***: Copy `.env.example` to `.env` and keep the local `.env` untracked.
-6. Create a simple POST request to start a job:
+4. Run database migrations:
+   ```bash
+   alembic upgrade head
+   ```
+   If your local database already has pre-Alembic tables, reset the Docker volume or run `alembic stamp head` once.
+5. Start the application:
+   ```bash
+   uvicorn app.main:app --reload
+   ```  
+6. Access the interactive API documentation at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)  
+
+7. Create a simple POST request to start a job:
    ```bash
       curl -X 'POST' \
       'http://127.0.0.1:8000/eval/start' \
@@ -74,7 +79,7 @@ Loom operates asynchronously. When a client submits a batch of prompts, the API 
    ```
    ***NOTE***: The current implementation mocks LLM responses by using `time.sleep(2)`. **No real API calls are being made yet.** See [TRD.md](docs/TRD.md) for Phase 2 LLM integration roadmap.  
 
-7. Deploy workers from the command prompt from the source directory (you may launch as many as desired):
+8. Deploy workers from the command prompt from the source directory (you may launch as many as desired):
    ```bash
    cd path/to/Loom
    python -m app.worker

@@ -7,7 +7,6 @@ from app.schemas import PIIEval
 #        "risk_score": 0.0-1.0
 # }
 
-        
 
 def evaluate_pii(text: str) -> PIIEval:
     has_pii: bool = False
@@ -31,10 +30,12 @@ def evaluate_pii(text: str) -> PIIEval:
         risk_score=risk_score
     )
 
+
 def _regex_has_email(text: str) -> list[str]:
     pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
 
     return re.findall(pattern, text)
+
 
 def _dedupe_preserve_order(items: list[str], normalise=str) -> list[str]:
     seen: set[str] = set()

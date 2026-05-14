@@ -1,12 +1,12 @@
 import sys
 import time
 import subprocess
-
 import threading
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, TextIO
+
 
 @dataclass # saves boiler plate like __init__, __eq__, etc.
 class WorkerHandle:

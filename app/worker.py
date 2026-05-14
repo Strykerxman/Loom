@@ -2,11 +2,11 @@ import time
 from sqlalchemy.orm import Session
 from collections.abc import Callable
 
-from .database.crud import find_pending_task, mark_task_running, mark_task_as_done, mark_task_as_failed_or_retry
-from app.database.database import SessionLocal as DefaultSessionLocal
+from .database import crud
+from .database.database import get_session_factory
 from .services.evaluator import evaluate_pii
-from app.models.models import TaskTable
-from app.services.llm_client import LLMClient, MockLLMClient
+from .models.models import TaskTable
+from .services.llm_client import LLMClient, MockLLMClient
 
 
 WORKER_IDLE_TIMEOUT = 60 * 10 # 10 minutes
@@ -26,7 +26,7 @@ def run_worker(sessionfactory: Callable[[], Session], llm_client: LLMClient | No
 
         try:
             with sessionfactory() as db:
-                task = find_pending_task(db=db)
+                task = crud.find_pending_task(db=db)
 
                 if task is not None:
                     idle_since = None
@@ -56,7 +56,7 @@ def process_task(db: Session, task: TaskTable, llm_client: LLMClient) -> None:
     task_id = task.task_id
     prompt = get_prompt(task)
 
-    mark_task_running(db, task_id)
+    crud.mark_task_running(db, task_id)
 
     try:
         result = llm_client.complete(prompt)
@@ -68,11 +68,11 @@ def process_task(db: Session, task: TaskTable, llm_client: LLMClient) -> None:
             "latency_ms": result.latency_ms
         }
 
-        mark_task_as_done(db, task_id, response_payload, pii_eval.model_dump())
+        crud.mark_task_as_done(db, task_id, response_payload, pii_eval.model_dump())
 
     except Exception as e:
         db.rollback()
-        mark_task_as_failed_or_retry(db, task_id, e, MAX_RETRIES)
+        crud.mark_task_as_failed_or_retry(db, task_id, e, MAX_RETRIES)
 
 
 def get_prompt(task: TaskTable) -> str:
@@ -85,4 +85,4 @@ def get_prompt(task: TaskTable) -> str:
     return prompt
 
 if __name__ == "__main__":
-    run_worker(DefaultSessionLocal)
+    run_worker(get_session_factory())

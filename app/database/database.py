@@ -20,6 +20,8 @@ def create_session_factory(database_url: str | None = None):
 
 
 @lru_cache(maxsize=1)
+# Creating database engines is computationally expensive and establishes network connection pools. 
+# This cache ensures the engine and pool are created exactly once and reused globally.
 def get_session_factory():
     return create_session_factory()
 

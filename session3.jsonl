@@ -1,3 +1,0 @@
-{"type":"session","version":3,"id":"019e27ae-4106-73ce-9840-e6547776e912","timestamp":"2026-05-14T18:16:39.916Z","cwd":"C:\\Users\\Stryker\\workspace\\Loom"}
-{"type":"model_change","id":"530111d6","parentId":null,"timestamp":"2026-05-14T18:10:12.446Z","provider":"openai-codex","modelId":"gpt-5.5"}
-{"type":"thinking_level_change","id":"65ea7c0a","parentId":"530111d6","timestamp":"2026-05-14T18:10:12.446Z","thinkingLevel":"xhigh"}

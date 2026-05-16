@@ -12,7 +12,13 @@ class PIIEval(BaseModel):
     risk_score: float = Field(le=1.0, ge=0.0)
 
 
-class EvalRequest(BaseModel):
+class TaskEvaluationResult(BaseModel):
+    input_eval: PIIEval
+    output_eval: PIIEval
+    output_leaked_pii: bool
+
+
+class EvalRequest(BaseModel): # submit prompts to api to be evaluated
     prompts: list[str] = Field(min_length=1, max_length=1_000)
 
 
@@ -23,7 +29,7 @@ class TaskResponse(BaseModel):
     status: TaskStatus
     payload: dict[str, Any]
     response: Optional[dict[str, Any]] = None
-    evaluation_result: Optional[PIIEval] = None
+    evaluation_result: Optional[TaskEvaluationResult] = None
     error_log: Optional[str] = None
 
 

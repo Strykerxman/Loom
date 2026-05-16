@@ -1,3 +1,3 @@
-from .schemas import EvalRequest, JobResponse, JobStatus, PIIEval, TaskResponse
+from .schemas import PIIEval, TaskEvaluationResult, EvalRequest, TaskResponse, JobResponse, JobStatus
 
-__all__ = ["EvalRequest", "JobResponse", "JobStatus", "PIIEval", "TaskResponse"]
+__all__ = ["PIIEval", "TaskEvaluationResult", "EvalRequest", "TaskResponse", "JobResponse", "JobStatus"]

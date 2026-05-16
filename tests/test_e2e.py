@@ -93,11 +93,19 @@ def run_e2e_test(base_url: str = BASE_URL):
             print(f"   - Prompt: {task['payload'].get('prompt')}")
 
             eval_result = task.get("evaluation_result") or {}
+            input_eval = eval_result.get("input_eval") or {}
+            output_eval = eval_result.get("output_eval") or {}
 
             if status == "done":
-                print(f"   - PII Found: {eval_result.get('has_pii')}")
-                if eval_result.get("has_pii"):
-                    print(f"   - PII Matches: {eval_result.get('matches')}")
+                print(f"   - Input PII Found: {input_eval.get('has_pii')}")
+                print(f"   - Output PII Found: {output_eval.get('has_pii')}")
+                print(f"   - Output Leaked PII: {eval_result.get('output_leaked_pii')}")
+                
+                if input_eval.get('matches'):
+                    print(f"   - Input PII Matches: {input_eval.get('matches')}")
+                if output_eval.get('matches'):
+                    print(f"   - Output PII Matches: {output_eval.get('matches')}")
+
             elif status == "failed":
                 print(f"   - Failed with error: {task.get('error_log')}")
             else:

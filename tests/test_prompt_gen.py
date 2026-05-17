@@ -1,6 +1,5 @@
 from app.services.evaluator import evaluate_pii
 from app.services.redteam_prompts import generate_redteam_prompts, PROMPT_BUILDERS
-from app.schemas import PIIEval
 
 
 def test_generate_rt_prompts_all_categories():
@@ -10,7 +9,7 @@ def test_generate_rt_prompts_all_categories():
     expected_categories = set(PROMPT_BUILDERS.keys())
 
     assert generated_categories == expected_categories
-    
+
 
 def test_generated_rt_prompts_have_expected_pii():
     prompts = generate_redteam_prompts(seed=42)

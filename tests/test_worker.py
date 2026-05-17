@@ -10,8 +10,8 @@ def test_process_task_stores_input_output_pii_evals(db_session: Session):
 
     llm_client = MockLLMClient(
         failure_rate=0.0,
-        min_latency_ms=0.0,
-        max_latency_ms=0.0,
+        min_latency_ms=0,
+        max_latency_ms=0,
     )
 
     process_task(db_session, task, llm_client=llm_client)

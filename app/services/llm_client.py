@@ -5,7 +5,6 @@ import time
 from typing import Protocol
 from groq import Groq
 
-from app.config import load_env
 
 @dataclass(frozen=True) # frozen=True means that it doesnt evolve over time. true because we only get 1 result and it shouldnt be modified
 # also means it can be Hashed, i.e. two LLMResult objects with same content are equal, their mem address doesnt affect equality.
@@ -84,7 +83,7 @@ def create_llm_client() -> LLMClient:
     """
     provider = os.getenv("LLM_PROVIDER", "mock")
     
-    if provider == "groq":
+    if provider.lower() == "groq":
         api_key = os.environ["GROQ_API_KEY"] #os.environ because api_key is critical, will raise valueerror if not found
         model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
         return GroqLLMClient(

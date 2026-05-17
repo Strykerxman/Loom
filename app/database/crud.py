@@ -1,21 +1,27 @@
+from typing import Any
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import JobTable, TaskTable
 
 
-def create_eval_job(db: Session, prompts: list[str]) -> JobTable:
+TaskPayloadInput = str | dict[str, Any]
+
+
+def create_eval_job(db: Session, prompts: list[TaskPayloadInput]) -> JobTable:
     """
     Creates a Job and its associated Tasks in a single transaction.
 
     A Job is created with the "pending" status. Its created Tasks have the "pending" status.
+    Prompts may be plain strings or structured task payloads containing prompt metadata.
     """
 
     db_job = JobTable(status = "pending")
 
     tasks = [
         TaskTable(
-            payload={"prompt": prompt},
+            payload=_normalise_task_payload(prompt),
             status="pending"
         )
         for prompt in prompts
@@ -30,6 +36,16 @@ def create_eval_job(db: Session, prompts: list[str]) -> JobTable:
     # Needed as the API response will have the created job ID and it can't access it once the Session is closed (after the database commit if no refresh)
      
     return db_job
+
+
+def _normalise_task_payload(prompt: TaskPayloadInput) -> dict[str, Any]:
+    if isinstance(prompt, str):
+        return {"prompt": prompt}
+
+    if "prompt" not in prompt or not isinstance(prompt["prompt"], str):
+        raise ValueError("Task payload must contain a string 'prompt'")
+
+    return dict(prompt)
 
 
 def find_job_from_id(db: Session, job_id: int) -> JobTable:

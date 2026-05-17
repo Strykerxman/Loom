@@ -4,9 +4,11 @@
 .ruff_cache
 .vscode
 */__pycache__
+__pycache__/
 *.pyc
 .env
 .env.*
 !.env.example
 *.log
 .pytest_cache
+.codemapper

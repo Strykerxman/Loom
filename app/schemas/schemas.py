@@ -18,8 +18,14 @@ class TaskEvaluationResult(BaseModel):
     output_leaked_pii: bool
 
 
+class EvalPrompt(BaseModel):
+    prompt: str = Field(min_length=1)
+    category: Optional[str] = None
+    expected_pii_types: list[str] = Field(default_factory=list)
+
+
 class EvalRequest(BaseModel): # submit prompts to api to be evaluated
-    prompts: list[str] = Field(min_length=1, max_length=1_000)
+    prompts: list[str | EvalPrompt] = Field(min_length=1, max_length=1_000)
 
 
 class TaskResponse(BaseModel):

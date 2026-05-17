@@ -7,7 +7,7 @@ from .database.database import get_session_factory
 from .services.evaluator import evaluate_pii
 from .schemas import TaskEvaluationResult
 from .models.models import TaskTable
-from .services.llm_client import LLMClient, MockLLMClient
+from .services.llm_client import create_llm_client, LLMClient
 
 
 WORKER_IDLE_TIMEOUT = 60 * 10 # 10 minutes
@@ -18,7 +18,7 @@ MAX_RETRIES = 3
 
 def run_worker(sessionfactory: Callable[[], Session], llm_client: LLMClient | None = None):
     idle_since: float | None = None
-    llm_client = llm_client or MockLLMClient()
+    llm_client = llm_client or create_llm_client()
 
     print("Worker started. Listening for tasks...")
 

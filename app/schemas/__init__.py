@@ -1,6 +1,8 @@
 from .schemas import (
+    CategoryLeakageReport,
     EvalPrompt,
     EvalRequest,
+    JobLeakageReport,
     JobResponse,
     JobStatus,
     PIIEval,
@@ -9,8 +11,10 @@ from .schemas import (
 )
 
 __all__ = [
+    "CategoryLeakageReport",
     "EvalPrompt",
     "EvalRequest",
+    "JobLeakageReport",
     "JobResponse",
     "JobStatus",
     "PIIEval",

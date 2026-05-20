@@ -12,7 +12,7 @@ from app.schemas import EvalPrompt, EvalRequest, JobResponse
 router = APIRouter()
 
 
-@router.post("/start", response_model=JobResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/start", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
 def create_evaluation_job(request: EvalRequest, db: Session = Depends(get_db)):
     task_payloads = [_eval_prompt_to_task_payload(prompt) for prompt in request.prompts]
 

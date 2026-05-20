@@ -5,7 +5,7 @@ from app.database import crud
 from app.database.database import get_db
 from app.models import JobTable
 from app.schemas import JobResponse
-from app.services.job_status import derive_job_status
+from app.services import job_status
 
 
 router = APIRouter()
@@ -16,7 +16,7 @@ def get_evaluation_job_status_from_id(
     job_id: int,
     include_tasks: bool = False,
     db: Session = Depends(get_db),
-):
+) -> JobResponse:
     try:
         db_job: JobTable | None = crud.find_job_from_id(db=db, job_id=job_id)
     except Exception:
@@ -31,23 +31,13 @@ def get_evaluation_job_status_from_id(
             detail=f"Job with ID {job_id} not found.",
         )
 
-    total_tasks = crud.get_total_tasks_for_job(db=db, job_id=job_id)
-    running_tasks = crud.get_running_tasks_for_job(db=db, job_id=job_id)
-    done_tasks = crud.get_done_tasks_for_job(db=db, job_id=job_id)
-    failed_tasks = crud.get_failed_tasks_for_job(db=db, job_id=job_id)
-    terminal_tasks = done_tasks + failed_tasks
-
-    job_status = derive_job_status(
-        total_tasks=total_tasks,
-        running_tasks=running_tasks,
-        terminal_tasks=terminal_tasks,
-    )
+    job_progress: job_status.JobProgress = job_status.get_job_progress(db, job_id)
 
     return JobResponse(
         job_id=db_job.job_id,
-        status=job_status,
+        status=job_progress.status,
         tasks=db_job.tasks if include_tasks else [],
-        total_tasks=total_tasks,
-        finished_tasks=terminal_tasks,
-        failed_tasks=failed_tasks,
+        total_tasks=job_progress.total_tasks,
+        finished_tasks=job_progress.terminal_tasks,
+        failed_tasks=job_progress.failed_tasks,
     )

@@ -1,7 +1,8 @@
 from pydantic import ValidationError
 
 from app.models import JobTable, TaskTable
-from app.schemas import CategoryLeakageReport, JobStatus, JobLeakageReport, TaskEvaluationResult
+from app.schemas import CategoryLeakageReport, JobLeakageReport, JobStatus
+from app.pii import TaskEvaluationResult
 
 
 def build_job_leakage_report(job: JobTable, *, status: JobStatus) -> JobLeakageReport:

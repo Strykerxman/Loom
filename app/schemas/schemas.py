@@ -1,21 +1,23 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Any, Optional, Literal
 
+from app.pii.schemas import TaskEvaluationResult
+
 TaskStatus = Literal["pending", "running", "done", "failed"]
 JobStatus = Literal["pending", "running", "done"]
 
+# MENTAL MODEL
+# ------------
+# Job
+# |-> Task
+#     |-> evaluation_result: TaskEvaluationResult
+#         - input_eval: PIIEval
+#         - output_eval: PIIEval
+#         - output_leaked_pii: bool
 
-class PIIEval(BaseModel):
-    has_pii: bool
-    types: list[str] = Field(default_factory=list)
-    matches: dict[str, list[str]] = Field(default_factory=dict)
-    risk_score: float = Field(le=1.0, ge=0.0)
-
-
-class TaskEvaluationResult(BaseModel): # single task result
-    input_eval: PIIEval
-    output_eval: PIIEval
-    output_leaked_pii: bool
+# JobLeakageReport
+# |-> by_category: dict[str, CategoryLeakageReport]
+#     |-> CategoryLeakageReport
 
 
 class EvalPrompt(BaseModel): # prompt schema, payload

@@ -5,8 +5,6 @@ from .schemas import (
     JobLeakageReport,
     JobResponse,
     JobStatus,
-    PIIEval,
-    TaskEvaluationResult,
     TaskResponse,
 )
 
@@ -17,7 +15,5 @@ __all__ = [
     "JobLeakageReport",
     "JobResponse",
     "JobStatus",
-    "PIIEval",
-    "TaskEvaluationResult",
     "TaskResponse",
 ]

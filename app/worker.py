@@ -5,7 +5,7 @@ from collections.abc import Callable
 from .database import crud
 from .database.database import get_session_factory
 from .services.evaluator import evaluate_pii
-from .schemas import TaskEvaluationResult
+from .pii import TaskEvaluationResult
 from .models.models import TaskTable
 from .services.llm_client import create_llm_client, LLMClient
 

@@ -6,7 +6,7 @@ def evaluate_pii(text: str) -> PIIEval:
     """
     Public API function to get a PII evaluation from a string of text.
     """
-    entities = detect_pii_entities(text)
+    entities: list[DetectedPII] = detect_pii_entities(text)
     return _entities_to_pii_eval(entities)
     
 
@@ -17,7 +17,27 @@ def detect_pii_entities(text: str) -> list[DetectedPII]:
     email_entities = _detect_emails(text)
     entities.extend(email_entities)
 
-    return _dedupe_entities(entities)   
+    return entities
+
+
+def find_leaked_entities( # check if inputted entities match any output entities = leaked pii -> PIIEval.has_pii = True
+    input_entities: list[DetectedPII],
+    output_entities: list[DetectedPII],
+) -> list[DetectedPII]:
+    
+    idty_set: set[tuple[str, str]] = set() # form: type (e.g. "email"), norm_value (e.g. "john.doe@foo.bar")
+    leaks: list[DetectedPII] = []
+
+    for entity in input_entities:
+        idty_set.add(_entity_identity(entity))
+
+    for entity in output_entities:
+        idty = _entity_identity(entity)
+
+        if idty in idty_set:
+            leaks.append(entity)
+
+    return leaks
 
 
 def _entities_to_pii_eval(entities: list[DetectedPII]) -> PIIEval:
@@ -26,11 +46,11 @@ def _entities_to_pii_eval(entities: list[DetectedPII]) -> PIIEval:
     matches: dict[str, list[str]] = {}
     risk_score: float = 0.0
     
-    for entity in entities:
+    for entity in _dedupe_entities(entities):
         if entity.type not in matches.keys():
             matches[entity.type] = []
         
-        matches[entity.type].append(entity.value)
+        matches[entity.type].append(entity.normalized_value)
 
     has_pii = bool(matches)
     types = sorted(list(matches.keys()))
@@ -71,9 +91,15 @@ def _dedupe_entities(entities: list[DetectedPII]) -> list[DetectedPII]:
     seen: set[tuple[str, str]] = set()
     out: list[DetectedPII] = []
 
-    for entity in entities:
-        if (entity.normalized_value, entity.type) not in seen:
-            seen.add((entity.normalized_value, entity.type))
+    for entity in entities: 
+        e_identity = _entity_identity(entity)
+
+        if e_identity not in seen:
+            seen.add(e_identity)
             out.append(entity)
 
     return out
+
+
+def _entity_identity(e: DetectedPII) -> tuple[str, str]:
+    return (e.type, e.normalized_value)

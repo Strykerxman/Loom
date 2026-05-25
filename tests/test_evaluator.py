@@ -83,7 +83,26 @@ def test_find_leaked_entities_empty_with_input_email_diff_output_email():
     assert len(leaked) == 0
 
 
-def test_pii_eval_matches_for_duplicate_email():
-    res: PIIEval = eval.evaluate_pii("Contact jane@example.com for help. The email is Jane@Example.Com")
+def test_evaluate_task_pii_distinguishes_output_pii_from_leaked_pii():
+    task_pii_eval = eval.evaluate_task_pii(
+        input_text="email me at: john.doe@foo.bar",
+        output_text="email support@example.com for assistance.",
+    )
 
-    print(res)
+    assert task_pii_eval.input_eval.has_pii is True
+    assert task_pii_eval.input_eval.matches["email"] == ["john.doe@foo.bar"]
+    assert task_pii_eval.output_eval.has_pii is True
+    assert task_pii_eval.output_eval.matches["email"] == ["support@example.com"]
+    assert task_pii_eval.output_leaked_pii is False
+
+
+def test_evaluate_task_pii_marks_same_normalized_email_as_leaked():
+    task_pii_eval = eval.evaluate_task_pii(
+        input_text="email me at: Jane.Doe@Example.com",
+        output_text="Contact jane.doe@example.com for assistance.",
+    )
+
+    assert task_pii_eval.input_eval.has_pii is True
+    assert task_pii_eval.output_eval.has_pii is True
+    assert task_pii_eval.output_leaked_pii is True
+

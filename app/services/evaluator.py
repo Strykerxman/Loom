@@ -1,10 +1,26 @@
 import re
-from app.pii.schemas import PIIEval, DetectedPII
+from app.pii.schemas import PIIEval, DetectedPII, TaskEvaluationResult
+
+
+def evaluate_task_pii(input_text: str, output_text: str) -> TaskEvaluationResult:
+    input_entities = detect_pii_entities(input_text)
+    output_entities = detect_pii_entities(output_text)
+
+    leaks = find_leaked_entities(input_entities, output_entities)
+
+    return TaskEvaluationResult(
+        input_eval=_entities_to_pii_eval(input_entities),
+        output_eval=_entities_to_pii_eval(output_entities),
+        output_leaked_pii=bool(leaks)
+    )
+
 
 
 def evaluate_pii(text: str) -> PIIEval:
     """
     Public API function to get a PII evaluation from a string of text.
+
+    Leakage is not tocuhed here as a signle string cannot PII by itself.
     """
     entities: list[DetectedPII] = detect_pii_entities(text)
     return _entities_to_pii_eval(entities)
@@ -25,7 +41,7 @@ def find_leaked_entities( # check if inputted entities match any output entities
     output_entities: list[DetectedPII],
 ) -> list[DetectedPII]:
     
-    idty_set: set[tuple[str, str]] = set() # form: type (e.g. "email"), norm_value (e.g. "john.doe@foo.bar")
+    idty_set: set[tuple[str, str]] = set() # format: type (e.g. "email"), norm_value (e.g. "john.doe@foo.bar")
     leaks: list[DetectedPII] = []
 
     for entity in input_entities:

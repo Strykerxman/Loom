@@ -4,10 +4,10 @@ from collections.abc import Callable
 
 from .database import crud
 from .database.database import get_session_factory
-from .services.evaluator import evaluate_pii
+from .services.evaluator import evaluate_task_pii
 from .pii import TaskEvaluationResult
 from .models.models import TaskTable
-from .services.llm_client import create_llm_client, LLMClient
+from .services.llm_client import create_llm_client, LLMClient, LLMResult
 
 
 WORKER_IDLE_TIMEOUT = 60 * 10 # 10 minutes
@@ -63,23 +63,17 @@ def process_task(db: Session, task: TaskTable, llm_client: LLMClient) -> None:
     print(f"Processing task {task_id}", flush=True)
 
     try:
-        input_eval = evaluate_pii(prompt)
-        result = llm_client.complete(prompt)
-        output_eval = evaluate_pii(result.text)
-
-        evaluation_result = TaskEvaluationResult(
-            input_eval=input_eval,
-            output_eval=output_eval,
-            output_leaked_pii=output_eval.has_pii
-        )
+        result: LLMResult = llm_client.complete(prompt)
+        llm_response_str: str = result.text
+        task_pii_evaluation: TaskEvaluationResult = evaluate_task_pii(input_text=prompt, output_text=llm_response_str)
 
         response_payload = { # construct a response payload
-            "text": result.text,
+            "text": llm_response_str,
             "model": result.model,
             "latency_ms": result.latency_ms
         }
 
-        crud.mark_task_as_done(db, task_id, response_payload, evaluation_result.model_dump())
+        crud.mark_task_as_done(db=db, task_id=task_id, response=response_payload, pii_eval=task_pii_evaluation.model_dump())
         print(f"Completed task {task_id}", flush=True)
 
     except Exception as e:

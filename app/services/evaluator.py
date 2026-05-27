@@ -1,5 +1,5 @@
-import re
 from app.pii.schemas import PIIEval, DetectedPII, TaskEvaluationResult
+from app.pii.detectors import DETECTORS
 
 
 def evaluate_task_pii(input_text: str, output_text: str) -> TaskEvaluationResult:
@@ -15,7 +15,6 @@ def evaluate_task_pii(input_text: str, output_text: str) -> TaskEvaluationResult
     )
 
 
-
 def evaluate_pii(text: str) -> PIIEval:
     """
     Public API function to get a PII evaluation from a string of text.
@@ -27,11 +26,10 @@ def evaluate_pii(text: str) -> PIIEval:
     
 
 def detect_pii_entities(text: str) -> list[DetectedPII]:
-    entities = []
+    entities: list[DetectedPII] = []
 
-    # loop through detectors
-    email_entities = _detect_emails(text)
-    entities.extend(email_entities)
+    for detector in DETECTORS:
+        entities.extend(detector.detect(text))
 
     return entities
 
@@ -78,29 +76,6 @@ def _entities_to_pii_eval(entities: list[DetectedPII]) -> PIIEval:
         matches=matches,
         risk_score=risk_score
     )
-
-
-def _detect_emails(text: str) -> list[DetectedPII]:
-    pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-
-    emails = []
-
-    for email in re.finditer(pattern, text):
-        raw_email = email.group(0)
-        norm_email = raw_email.lower()
-
-        emails.append(
-            DetectedPII(
-                type="email",
-                value=raw_email,
-                normalized_value=norm_email,
-                start_idx=email.start(),
-                end_idx=email.end(),
-                confidence=0.9,
-                source="regex"
-            ))
-        
-    return emails
 
 
 def _dedupe_entities(entities: list[DetectedPII]) -> list[DetectedPII]:

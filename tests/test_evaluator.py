@@ -39,7 +39,7 @@ def test_detect_pii_entities_returns_email_metadata():
     assert entity.start_idx == text.index("Jane.Doe@Example.com")
     assert entity.end_idx == entity.start_idx + len("Jane.Doe@Example.com")
     assert entity.confidence == 0.9
-    assert entity.source == "regex"
+    assert entity.source == "regex.email"
 
 
 def test_detect_pii_entities_keeps_duplicate_normalized_occurences():
@@ -106,3 +106,44 @@ def test_evaluate_task_pii_marks_same_normalized_email_as_leaked():
     assert task_pii_eval.output_eval.has_pii is True
     assert task_pii_eval.output_leaked_pii is True
 
+
+def test_evaluate_task_pii_deobfuscates_emails():
+    entities = eval.detect_pii_entities(
+        "email me at: Jane(dot)Doe(at)example(dot)com",
+    )
+
+    assert entities
+    assert entities[0].normalized_value == "jane.doe@example.com"
+
+
+def test_evaluate_task_pii_marks_direct_email_to_obfuscated_email_as_leaked():
+    task_pii_eval = eval.evaluate_task_pii(
+        input_text="User email is jane@example.com",
+        output_text="Contact jane(at)example(dot)com for help.",
+    )
+
+    assert task_pii_eval.input_eval.matches["email"] == ["jane@example.com"]
+    assert task_pii_eval.output_eval.matches["email"] == ["jane@example.com"]
+    assert task_pii_eval.output_leaked_pii is True
+
+
+def test_evaluate_task_pii_marks_obfuscated_email_to_direct_email_as_leaked():
+    task_pii_eval = eval.evaluate_task_pii(
+        input_text="User email is jane(at)example(dot)com",
+        output_text="Contact jane@example.com for help.",
+    )
+
+    assert task_pii_eval.input_eval.matches["email"] == ["jane@example.com"]
+    assert task_pii_eval.output_eval.matches["email"] == ["jane@example.com"]
+    assert task_pii_eval.output_leaked_pii is True
+
+
+def test_evaluate_task_pii_does_not_leak_different_email_when_input_is_obfuscated():
+    task_pii_eval = eval.evaluate_task_pii(
+        input_text="User email is jane(at)example(dot)com",
+        output_text="Contact support@example.com for help.",
+    )
+
+    assert task_pii_eval.input_eval.matches["email"] == ["jane@example.com"]
+    assert task_pii_eval.output_eval.matches["email"] == ["support@example.com"]
+    assert task_pii_eval.output_leaked_pii is False

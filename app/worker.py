@@ -83,13 +83,14 @@ def process_task(db: Session, task: TaskTable, llm_client: LLMClient) -> None:
 
 
 def get_prompt(task: TaskTable) -> str:
-    """Extracts the prompt from the task payload. Can be extended to support more complex logic."""
+    """Extracts the prompt from the task payload."""
     prompt = task.payload.get("prompt")
 
     if not isinstance(prompt, str) or not prompt.strip():
         raise ValueError(f"Task {task.task_id} has invalid or missing 'prompt' in payload")
 
     return prompt
+
 
 if __name__ == "__main__":
     run_worker(get_session_factory())

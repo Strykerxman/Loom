@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal, Callable, get_args
+from typing import Literal, Callable
 import random
 from faker import Faker
 
@@ -24,7 +24,7 @@ class RedTeamPrompt:
 def generate_redteam_prompts(seed: int | None = None) -> list[RedTeamPrompt]:
     faker = Faker()
 
-    rng = _set_seeds(seed, faker=faker)
+    _ = _set_seeds(seed, faker=faker)
 
     prompts = []
 

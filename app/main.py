@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .api import router
 
@@ -24,4 +25,5 @@ def demo():
     return FileResponse(STATIC_DIR / "demo.html")
 
 
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(router)

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Loom Privacy Report Demo</title>
+    <link rel="stylesheet" href="/static/demo.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero panel">
+        <div>
+          <p class="eyebrow">Loom report console</p>
+          <h1>Privacy regression report</h1>
+          <p class="hero-copy">
+            Submit prompts, let workers evaluate the LLM output, then inspect the aggregate leakage report.
+          </p>
+        </div>
+        <div class="hero-links">
+          <a href="/docs" target="_blank" rel="noreferrer">API docs</a>
+          <a id="rawStatusLink" class="muted-link hidden" target="_blank" rel="noreferrer">Raw status</a>
+          <a id="rawReportLink" class="muted-link hidden" target="_blank" rel="noreferrer">Raw report</a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <h2>1. Submit prompts</h2>
+            <p>Enter one prompt per blank-line-separated block. Optional first lines: <code>category:</code> and <code>expected_pii_types:</code>.</p>
+          </div>
+          <button id="loadSampleButton" class="secondary-button" type="button">Load sample</button>
+        </div>
+
+        <textarea id="promptInput" rows="12" spellcheck="false" placeholder="Paste prompts here..."></textarea>
+
+        <div class="actions">
+          <button id="submitButton" type="button">Submit evaluation</button>
+          <button id="resetButton" class="secondary-button" type="button">Reset</button>
+        </div>
+
+        <p id="message" class="message" role="status"></p>
+      </section>
+
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <h2>2. Job progress</h2>
+            <p>The UI polls <code>/eval/status/{job_id}</code> until all tasks are terminal.</p>
+          </div>
+          <span id="statusBadge" class="badge">idle</span>
+        </div>
+
+        <div class="progress-grid">
+          <div>
+            <span class="label">Job ID</span>
+            <strong id="jobIdValue">—</strong>
+          </div>
+          <div>
+            <span class="label">Finished</span>
+            <strong><span id="finishedValue">0</span>/<span id="totalValue">0</span></strong>
+          </div>
+          <div>
+            <span class="label">Failed</span>
+            <strong id="failedValue">0</strong>
+          </div>
+        </div>
+
+        <div class="progress-bar" aria-hidden="true">
+          <div id="progressFill"></div>
+        </div>
+      </section>
+
+      <section id="reportSection" class="panel hidden">
+        <div class="section-header">
+          <div>
+            <h2>3. Leakage report</h2>
+            <p>Aggregated by the backend from stored task evaluations.</p>
+          </div>
+        </div>
+
+        <div id="metricCards" class="metric-grid"></div>
+
+        <h3>By category</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Total</th>
+                <th>Evaluated</th>
+                <th>Input PII</th>
+                <th>Output PII</th>
+                <th>Leaked</th>
+                <th>Leak rate</th>
+              </tr>
+            </thead>
+            <tbody id="categoryRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="taskSection" class="panel hidden">
+        <div class="section-header">
+          <div>
+            <h2>4. Task details</h2>
+            <p>Expanded details may contain PII. Inspect intentionally.</p>
+          </div>
+          <button id="loadTasksButton" class="secondary-button" type="button">Load task details</button>
+        </div>
+        <div id="taskList" class="task-list"></div>
+      </section>
+    </main>
+
+    <script src="/static/demo.js" defer></script>
+  </body>
+</html>

@@ -1,6 +1,11 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 
 from .api import router
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 app = FastAPI(
@@ -12,6 +17,11 @@ app = FastAPI(
 @app.get("/")
 def root():
     return {"message": "Welcome to Loom, your LLM evaluation pipeline."}
+
+
+@app.get("/demo", include_in_schema=False)
+def demo():
+    return FileResponse(STATIC_DIR / "demo.html")
 
 
 app.include_router(router)

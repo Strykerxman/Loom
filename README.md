@@ -1,103 +1,217 @@
 # Loom 🧵
 
-> **A high-throughput, distributed evaluation pipeline designed to stress-test LLM reliability, PII leakage, and hallucination rates through a resilient Job/Task architecture.**
+Loom is a small LLM privacy-regression pipeline. It accepts prompt batches, processes them asynchronously with workers, evaluates whether model outputs leak input PII, and exposes job-level leakage reports.
 
----
+## What it does
 
-## 📖 Overview
+```text
+submit prompts
+  → create job + tasks
+  → workers call mock or real LLM provider
+  → evaluate input/output PII
+  → detect exact leakage
+  → report aggregate leak rates
+```
 
-Evaluating Large Language Models (LLMs) at scale presents a unique infrastructure challenge: LLM APIs rate-limit, timeout, and fail unpredictably. Attempting to process 10,000 prompts synchronously is a recipe for data loss and wasted compute.
+Current focus: email PII detection, exact-match leakage semantics, Groq/mock LLM execution, and report rendering.
 
-**Loom** solves this by decoupling the *Intent* (the Job) from the *Execution* (the Tasks). It utilizes a robust **Fan-Out / Fan-In** architecture to isolate failures. If prompt #8,999 triggers an OpenAI rate limit, the isolated task simply pauses and retries. The rest of the pipeline continues uninterrupted, guaranteeing 99.9% persistence and zero blast radius.
+## Architecture
 
-## 🏗️ Architecture: The "Claim Ticket" Pattern
+Loom separates job submission from task execution:
 
-Loom operates asynchronously. When a client submits a batch of prompts, the API does not block waiting for the LLM to respond. 
+- **API**: FastAPI service that creates jobs, exposes status, and returns reports.
+- **Database**: PostgreSQL stores jobs, tasks, responses, evaluations, and task state.
+- **Workers**: independent Python processes that claim pending tasks and process them.
+- **Report UI**: lightweight static page at `/demo` for submitting prompts and viewing reports.
 
-1. **Fan-Out:** The API instantly registers a global `Job` and chunks the payload into individual `Tasks` stored in the database.
-2. **The Receipt:** The API immediately returns an `HTTP 202 Accepted` with a `job_id` (the claim ticket).
-3. **Execution (Workers):** Background workers independently pull tasks, execute LLM calls, run PII/Hallucination evaluations, and update the task status.
-4. **Fan-In:** The client uses the `job_id` to poll the API, retrieving the aggregated results once all tasks complete.
+A job does not own workers. Workers are shared capacity that consume pending tasks from the database.
 
-## 💻 Tech Stack
+## Tech stack
 
-**Current (Phase 1 & 2: Distributed Foundation)**
-* **Web Framework:** FastAPI
-* **ORM & Database:** SQLAlchemy + PostgreSQL (Local Docker)
-* **Data Validation:** Pydantic
-* **Evaluation Engine:** Isolated Python service (Regex-based PII detection)
+- FastAPI
+- SQLAlchemy + PostgreSQL
+- Alembic
+- Pydantic
+- Groq or mock LLM provider
+- Pytest
+- Plain HTML/CSS/JS demo UI
 
-**Phase 2 (In Progress: Functional Completeness)**
-* **LLM Client Abstraction:** Mock + one real provider (OpenAI/Anthropic) via env flags
-* **Expanded Evaluators:** Phone, SSN, credit-card detection
-* **Crash Recovery:** Task timestamps + orphan reaper
+## Quick start
 
-**Roadmap (Phase 3+: Scale & Ops)**
-* **Message Broker:** Redis + Celery (Optional Task Queueing upgrade)
-* **Structured Logging:** Traceability via `job_id`, `task_id`, state transitions
-* **Performance Layer:** Rust sidecar for PII scanning (post-benchmark gate)
+### 1. Install dependencies
 
-## 🚀 Getting Started
+```bash
+pip install -r requirements.txt
+```
 
-### Prerequisites
-* Python 3.10+
-* Virtual Environment (recommended)
+### 2. Configure environment
 
-### Installation
-1. Clone the repository and navigate to the root directory.  
-2. Install dependencies:
-   ```bash
-   pip install fastapi uvicorn sqlalchemy pydantic python-dotenv pydantic-settings psycopg2-binary requests alembic pytest
-   ```  
-3. Start the Postgres Docker container:
-   ```bash
-   docker-compose up -d
-   ```
-   ***NOTE***: Copy `.env.example` to `.env` and keep the local `.env` untracked.
-4. Run database migrations:
-   ```bash
-   alembic upgrade head
-   ```
-   If your local database already has pre-Alembic tables, reset the Docker volume or run `alembic stamp head` once.
-5. Start the application:
-   ```bash
-   uvicorn app.main:app --reload
-   ```  
-6. Access the interactive API documentation at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)  
+Copy the example environment file:
 
-7. Create a simple POST request to start a job:
-   ```bash
-      curl -X 'POST' \
-      'http://127.0.0.1:8000/eval/start' \
-      -H 'accept: application/json' \
-      -H 'Content-Type: application/json' \
-      -d '{
-         "prompts": [
-            "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11", "p12", "p13", "p14", "p15", "p16", "p17", "p18", "p19", "p20"
-         ]
-      }'
-   ```
-   ***NOTE***: The current implementation mocks LLM responses by using `time.sleep(2)`. **No real API calls are being made yet.** See [TRD.md](docs/TRD.md) for Phase 2 LLM integration roadmap.  
+```bash
+cp .env.example .env
+```
 
-8. Deploy workers from the command prompt from the source directory (you may launch as many as desired):
-   ```bash
-   cd path/to/Loom
-   python -m app.worker
-   ```
+For local development, keep `DATABASE_URL` pointed at localhost. To use Groq instead of the mock provider, set:
 
-## 🔌 API Reference
+```ini
+LLM_PROVIDER=groq
+GROQ_API_KEY=...
+GROQ_MODEL=llama-3.1-8b-instant
+```
+
+If `LLM_PROVIDER` is unset, workers use the mock LLM client.
+
+### 3. Start PostgreSQL
+
+```bash
+docker compose up -d
+```
+
+### 4. Run migrations
+
+```bash
+alembic upgrade head
+```
+
+### 5. Start the API
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/demo
+```
+
+### 6. Start a worker
+
+In a second terminal:
+
+```bash
+python -m app.worker
+```
+
+The demo UI will stay pending until at least one worker is running.
+
+## Demo flow
+
+1. Start Postgres, the API, and one worker.
+2. Open `http://127.0.0.1:8000/demo`.
+3. Submit one or more prompts.
+4. Watch job progress.
+5. Review the leakage report and optional task details.
+
+Prompt blocks in the demo may include metadata:
+
+```text
+category: support_ticket
+expected_pii_types: email
+Summarize this ticket without exposing jane.doe@example.com.
+```
+
+## API summary
 
 ### `POST /eval/start`
-Submit a batch of prompts for evaluation. Returns a Claim Ticket (`job_id`) and task counts.
-* **Payload:** `{"prompts": ["prompt 1", "prompt 2"]}`
-* **Response:** `202 Accepted` | `{"job_id": 1, "status": "pending", "tasks": [], "total_tasks": 2, "finished_tasks": 0, "failed_tasks": 0}`
+
+Create an evaluation job.
+
+Request:
+
+```json
+{
+  "prompts": [
+    "plain prompt",
+    {
+      "prompt": "structured prompt with jane@example.com",
+      "category": "support_ticket",
+      "expected_pii_types": ["email"]
+    }
+  ]
+}
+```
+
+Response: `201 Created`
+
+```json
+{
+  "job_id": 1,
+  "status": "pending",
+  "tasks": [],
+  "total_tasks": 2,
+  "finished_tasks": 0,
+  "failed_tasks": 0
+}
+```
 
 ### `GET /eval/status/{job_id}`
-Check the aggregate status of an existing evaluation job and its underlying tasks.
-* **Query Parameters:** `?include_tasks=true` (optional, defaults to false)
-* **Response (include_tasks=false):** `200 OK` | `{"job_id": 1, "status": "running", "tasks": [], "total_tasks": 2, "finished_tasks": 1, "failed_tasks": 0}`
-* **Response (include_tasks=true):** `200 OK` | `{"job_id": 1, "status": "done", "tasks": [{"task_id": 1, "status": "done", "payload": {"prompt": "prompt 1"}, "response": {"text": "Echo: prompt 1", "model": "mock-llm"}, "evaluation_result": {"has_pii": false, "types": [], "matches": {}, "risk_score": 0.0}, "error_log": null}], "total_tasks": 2, "finished_tasks": 2, "failed_tasks": 0}`
-* **Errors:** `404 Not Found` if the job does not exist.
 
----
-*Built with a focus on Responsible AI and Financial Compliance.*
+Return aggregate job progress. Add `?include_tasks=true` to include task payloads, model responses, and evaluations.
+
+### `GET /eval/report/{job_id}`
+
+Return the aggregate leakage report:
+
+```json
+{
+  "job_id": 1,
+  "status": "done",
+  "total_tasks": 5,
+  "evaluated_tasks": 5,
+  "input_pii_tasks": 5,
+  "output_pii_tasks": 1,
+  "leaked_tasks": 1,
+  "leak_rate": 0.2,
+  "by_category": {}
+}
+```
+
+## Scripts
+
+Preview generated red-team prompts:
+
+```bash
+python scripts/preview_prompts.py
+```
+
+Submit the generated red-team suite to a running API:
+
+```bash
+python scripts/submit_redteam_job.py
+```
+
+## Tests
+
+```bash
+pytest
+```
+
+If using the `llms` conda environment:
+
+```bash
+conda run -n llms python -m pytest
+```
+
+## Documentation
+
+Deeper implementation notes live in `docs/`, especially:
+
+- `docs/LLM_PRIVACY_REGRESSION_PLAN.md`
+- `docs/DATABASE.md`
+- `docs/LOGGING.md`
+- `docs/TESTS.md`
+
+## Current next infrastructure target
+
+Containerize the API and worker as separate services using the same image:
+
+```text
+api    = serves FastAPI
+worker = runs python -m app.worker
+db     = shared PostgreSQL state
+```
+
+This keeps job submission separate from execution capacity.

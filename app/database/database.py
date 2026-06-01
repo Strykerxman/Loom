@@ -6,12 +6,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.config import load_env
 
 
-FALLBACK_DATABASE_URL = "sqlite:///./fallback.db"
-
-
 def get_database_url() -> str:
     load_env()
-    return os.getenv("DATABASE_URL", FALLBACK_DATABASE_URL)
+    database_url = os.getenv("DATABASE_URL")
+
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is required. Set it in the environment or selected dotenv file.")
+
+    return database_url
 
 
 def create_session_factory(database_url: str | None = None):

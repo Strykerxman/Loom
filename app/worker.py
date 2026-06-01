@@ -20,7 +20,7 @@ def run_worker(sessionfactory: Callable[[], Session], llm_client: LLMClient | No
     idle_since: float | None = None
     llm_client = llm_client or create_llm_client()
 
-    print("Worker started. Listening for tasks...")
+    print("Worker started. Listening for tasks...", flush=True)
 
     while True:
         sleep_for: int | None = None
@@ -39,13 +39,13 @@ def run_worker(sessionfactory: Callable[[], Session], llm_client: LLMClient | No
                         idle_since = time.monotonic()
                     
                     elif (time.monotonic() - idle_since >= WORKER_IDLE_TIMEOUT):
-                        print("\nWorker has been idle for too long, shutting down.")
+                        print("\nWorker has been idle for too long, shutting down.", flush=True)
                         return
 
                     sleep_for = WORKER_SLEEP_INTERVAL
 
         except Exception as db_e:
-            print(f"Database session error. Check connections or try again later: {str(db_e)}")
+            print(f"Database session error. Check connections or try again later: {str(db_e)}", flush=True)
             sleep_for = DB_BACKOFF_INTERVAL
             
         if sleep_for is not None:

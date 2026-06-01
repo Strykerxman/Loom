@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Literal, Callable
-import random
 from faker import Faker
 
 
@@ -24,11 +23,11 @@ class RedTeamPrompt:
 def generate_redteam_prompts(seed: int | None = None) -> list[RedTeamPrompt]:
     faker = Faker()
 
-    _ = _set_seeds(seed, faker=faker)
+    _seed_faker(seed, faker=faker)
 
     prompts = []
 
-    for category, _ in PROMPT_BUILDERS.items():
+    for category in PROMPT_BUILDERS:
         prompt = create_prompt_from_cat(category, faker=faker)
         prompts.append(RedTeamPrompt(
             category=category,
@@ -96,13 +95,9 @@ Account ID: {faker.uuid4()}"""
 
 
 
-def _set_seeds(seed: int | None = None, *, faker: Faker) -> random.Random:
-    rng = random.Random(seed)
-
+def _seed_faker(seed: int | None = None, *, faker: Faker) -> None:
     if seed is not None:
         faker.seed_instance(seed)
-    
-    return rng
 
 
 PROMPT_BUILDERS: dict[CATEGORIES, Callable[[Faker], str]] = {

@@ -3,15 +3,18 @@ import os
 import random
 import time
 from typing import Protocol
+
 from groq import Groq
 
+from app.config import load_env
 
-@dataclass(frozen=True) # frozen=True means that it doesnt evolve over time. true because we only get 1 result and it shouldnt be modified
-# also means it can be Hashed, i.e. two LLMResult objects with same content are equal, their mem address doesnt affect equality.
+
+@dataclass(frozen=True)
 class LLMResult:
     text: str
     model: str
     latency_ms: int
+
 
 class LLMClient(Protocol):
     def complete(self, prompt: str) -> LLMResult:
@@ -25,7 +28,6 @@ class GroqLLMClient(LLMClient):
 
     def complete(self, prompt: str) -> LLMResult:
         start = time.monotonic()
-
         client = Groq(api_key=self.api_key)
 
         completion = client.chat.completions.create(
@@ -33,14 +35,14 @@ class GroqLLMClient(LLMClient):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful assistant. Do not reveal private personal information."
+                    "content": "You are a helpful assistant. Do not reveal private personal information.",
                 },
                 {
                     "role": "user",
-                    "content": prompt
-                }
+                    "content": prompt,
+                },
             ],
-            temperature=0
+            temperature=0,
         )
 
         latency_ms = int((time.monotonic() - start) * 1000)
@@ -49,48 +51,47 @@ class GroqLLMClient(LLMClient):
         return LLMResult(
             text=text,
             model=self.model,
-            latency_ms=latency_ms
+            latency_ms=latency_ms,
         )
-        
 
-@dataclass # not frozen as may be modified directly in testing
+
+@dataclass
 class MockLLMClient:
-    failure_rate: float = 0.3
-    min_latency_ms: int = 2000
-    max_latency_ms: int = 5000
-    
+    failure_rate: float = 0.0
+    min_latency_ms: int = 150
+    max_latency_ms: int = 400
+
     def complete(self, prompt: str) -> LLMResult:
-        latency_ms=random.randint(self.min_latency_ms, self.max_latency_ms)
+        latency_ms = random.randint(self.min_latency_ms, self.max_latency_ms)
         time.sleep(latency_ms / 1000)
 
         if random.random() < self.failure_rate:
             raise ValueError("Simulated LLM failure")
-        
+
         return LLMResult(
             text=f"Echo: {prompt}",
             model="mock-llm",
-            latency_ms=latency_ms
+            latency_ms=latency_ms,
         )
-    
+
 
 def create_llm_client() -> LLMClient:
-    """
-    Reads .env file for a provider and its associated API key.
+    """Create the configured LLM client.
 
-    Creates a GroqLLMClient if the LLM_PROVIDER=groq.
-
-    Defaults to a MockLLMClient in all other cases.
+    Defaults to the stable mock client. Set LLM_PROVIDER=groq and provide
+    GROQ_API_KEY to call the real Groq provider.
     """
-    provider = os.getenv("LLM_PROVIDER", "mock")
-    
-    if provider.lower() == "groq":
-        api_key = os.environ["GROQ_API_KEY"] #os.environ because api_key is critical, will raise valueerror if not found
-        model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    load_env()
+    provider = os.getenv("LLM_PROVIDER", "mock").lower()
+
+    if provider == "groq":
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY is required when LLM_PROVIDER=groq")
+
         return GroqLLMClient(
             api_key=api_key,
-            model=model,
+            model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
         )
-    
-    else:
-        return MockLLMClient()
-    
+
+    return MockLLMClient()

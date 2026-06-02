@@ -1,58 +1,53 @@
 # Loom 🧵
 
-Loom is a small LLM privacy-regression pipeline. It accepts prompt batches, processes them asynchronously with workers, evaluates whether model outputs leak input PII, and exposes job-level leakage reports.
-
-## What it does
-
-```text
-submit prompts
-  → create job + tasks
-  → workers call mock or real LLM provider
-  → evaluate input/output PII
-  → detect exact leakage
-  → report aggregate leak rates
-```
-
-Current focus: email PII detection, exact-match leakage semantics, Groq/mock LLM execution, and report rendering.
+Loom is a small LLM privacy-regression pipeline. It submits prompt batches, processes them with independent workers, evaluates whether model output leaks input PII, and reports aggregate leakage rates.
 
 ## Architecture
 
-Loom separates job submission from task execution:
+```text
+browser/script
+  → FastAPI API
+  → PostgreSQL jobs + tasks
+  ← worker processes claim pending tasks
+  → PII evaluator + leakage report
+```
 
-- **API**: FastAPI service that creates jobs, exposes status, and returns reports.
-- **Database**: PostgreSQL stores jobs, tasks, responses, evaluations, and task state.
-- **Workers**: independent Python processes that claim pending tasks and process them.
-- **Report UI**: lightweight static page at `/demo` for submitting prompts and viewing reports.
+- **API** creates jobs, exposes status, serves reports, and hosts the `/demo` UI.
+- **Worker** is a separate process that consumes pending tasks from PostgreSQL.
+- **Database** is the shared coordination point between API and workers.
+- **Reports** are computed server-side from stored task evaluations.
 
-A job does not own workers. Workers are shared capacity that consume pending tasks from the database.
+A submitted job does not start a worker. Workers are shared capacity and must already be running.
 
 ## Tech stack
 
-- FastAPI
-- SQLAlchemy + PostgreSQL
-- Alembic
-- Pydantic
-- Groq or mock LLM provider
-- Pytest
-- Plain HTML/CSS/JS demo UI
+FastAPI, SQLAlchemy, PostgreSQL, Alembic, Pydantic, Groq/mock LLM clients, Pytest, and a plain HTML/CSS/JS demo UI.
 
-## Quick start
+## Project status
 
-### 1. Install dependencies
+Loom v0.1 is demo-complete: the API, database, worker, evaluator, report endpoint, health checks, and `/demo` UI form a working privacy-regression loop. The current evaluator intentionally focuses on email PII leakage; additional detectors are future work rather than required scope for this milestone.
 
-```bash
-pip install -r requirements.txt
-```
+See `docs/NEXT.md` for the current stop point, known limitations, and practical next steps.
 
-### 2. Configure environment
+## Quick start: Docker Compose
 
-Copy the example environment file:
+This is the preferred way to run the full Loom stack.
+
+### 1. Create Docker environment config
+
+Create `.env.docker` from the example:
 
 ```bash
-cp .env.example .env
+cp .env.docker.example .env.docker
 ```
 
-For local development, keep `DATABASE_URL` pointed at localhost. To use Groq instead of the mock provider, set:
+For a mock local demo, keep:
+
+```ini
+LLM_PROVIDER=mock
+```
+
+For Groq, set:
 
 ```ini
 LLM_PROVIDER=groq
@@ -60,34 +55,49 @@ GROQ_API_KEY=...
 GROQ_MODEL=llama-3.1-8b-instant
 ```
 
-If `LLM_PROVIDER` is unset, workers use the mock LLM client.
-
-### 3. Start PostgreSQL
+### 2. Build the app image
 
 ```bash
-docker compose up -d
+docker compose build
+```
+
+### 3. Start Postgres
+
+```bash
+docker compose up -d db
 ```
 
 ### 4. Run migrations
 
 ```bash
-alembic upgrade head
+docker compose run --rm api alembic upgrade head
 ```
 
-### 5. Start the API
+### 5. Start API and worker
 
 ```bash
-uvicorn app.main:app --reload
+docker compose up api worker
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:8000/docs
-http://127.0.0.1:8000/demo
+http://localhost:8000/demo
+http://localhost:8000/docs
 ```
 
-### 6. Start a worker
+## Local development
+
+Use this path when running Python on your host machine and only Postgres in Docker.
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env
+cp .env.docker.example .env.docker  # used by the Compose Postgres service
+docker compose up -d db
+alembic upgrade head
+uvicorn app.main:app --reload
+```
 
 In a second terminal:
 
@@ -95,17 +105,17 @@ In a second terminal:
 python -m app.worker
 ```
 
-The demo UI will stay pending until at least one worker is running.
+For local host processes, `DATABASE_URL` should use `127.0.0.1`. For containers, it should use the Compose service name `db`.
 
 ## Demo flow
 
-1. Start Postgres, the API, and one worker.
-2. Open `http://127.0.0.1:8000/demo`.
-3. Submit one or more prompts.
-4. Watch job progress.
-5. Review the leakage report and optional task details.
+1. Start Postgres, API, and at least one worker.
+2. Open `http://localhost:8000/demo`.
+3. Submit prompts.
+4. Watch progress.
+5. Review the leakage report.
 
-Prompt blocks in the demo may include metadata:
+Prompt blocks may include metadata:
 
 ```text
 category: support_ticket
@@ -113,13 +123,19 @@ expected_pii_types: email
 Summarize this ticket without exposing jane.doe@example.com.
 ```
 
+## Health checks
+
+- `GET /health` — API liveness only.
+- `GET /health/db` — API can run a minimal database query.
+- `GET /health/ready` — API is alive and PostgreSQL responds. The Compose API healthcheck uses this endpoint.
+
+Readiness does not prove a worker is alive yet; that needs a future worker heartbeat or queue metric.
+
 ## API summary
 
 ### `POST /eval/start`
 
 Create an evaluation job.
-
-Request:
 
 ```json
 {
@@ -134,54 +150,29 @@ Request:
 }
 ```
 
-Response: `201 Created`
-
-```json
-{
-  "job_id": 1,
-  "status": "pending",
-  "tasks": [],
-  "total_tasks": 2,
-  "finished_tasks": 0,
-  "failed_tasks": 0
-}
-```
-
 ### `GET /eval/status/{job_id}`
 
 Return aggregate job progress. Add `?include_tasks=true` to include task payloads, model responses, and evaluations.
 
 ### `GET /eval/report/{job_id}`
 
-Return the aggregate leakage report:
-
-```json
-{
-  "job_id": 1,
-  "status": "done",
-  "total_tasks": 5,
-  "evaluated_tasks": 5,
-  "input_pii_tasks": 5,
-  "output_pii_tasks": 1,
-  "leaked_tasks": 1,
-  "leak_rate": 0.2,
-  "by_category": {}
-}
-```
+Return the aggregate leakage report by job and category.
 
 ## Scripts
 
 Preview generated red-team prompts:
 
 ```bash
-python scripts/preview_prompts.py
+python -m scripts.preview_prompts
 ```
 
 Submit the generated red-team suite to a running API:
 
 ```bash
-python scripts/submit_redteam_job.py
+python -m scripts.submit_redteam_job
 ```
+
+Override the target API with `BASE_URL` when needed.
 
 ## Tests
 
@@ -199,19 +190,8 @@ conda run -n llms python -m pytest
 
 Deeper implementation notes live in `docs/`, especially:
 
+- `docs/NEXT.md`
 - `docs/LLM_PRIVACY_REGRESSION_PLAN.md`
 - `docs/DATABASE.md`
 - `docs/LOGGING.md`
 - `docs/TESTS.md`
-
-## Current next infrastructure target
-
-Containerize the API and worker as separate services using the same image:
-
-```text
-api    = serves FastAPI
-worker = runs python -m app.worker
-db     = shared PostgreSQL state
-```
-
-This keeps job submission separate from execution capacity.

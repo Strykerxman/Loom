@@ -66,7 +66,7 @@ from scripts.job_status import derive_job_status
 Prefer app-owned modules:
 
 ```python
-from app.services.job_status import derive_job_status
+from app.status_rules import derive_job_status
 ```
 
 Rule of thumb:

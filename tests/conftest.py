@@ -1,4 +1,7 @@
+from collections.abc import Iterator
+
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from tests.support.test_stack import (
@@ -12,7 +15,8 @@ from tests.support.test_stack import (
 
 configure_test_environment()
 
-from app.database.database import get_session_factory, reset_session_factory_cache  # noqa: E402
+from app.database.database import get_db, get_session_factory, reset_session_factory_cache  # noqa: E402
+from app.main import app  # noqa: E402
 
 reset_session_factory_cache()
 
@@ -64,3 +68,28 @@ def db_session(test_database):
     finally:
         db.rollback()
         db.close()
+
+
+@pytest.fixture
+def client(db_session) -> Iterator[TestClient]:
+    """FastAPI test client wired to the isolated test database.
+
+    Endpoint requests use their own short-lived DB sessions, matching the real
+    application pattern more closely than reusing the fixture's setup session.
+    """
+    SessionLocal = get_session_factory()
+
+    def override_get_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()

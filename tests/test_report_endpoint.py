@@ -1,38 +1,8 @@
-from collections.abc import Iterator
-
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.database import crud
-from app.database.database import get_db, get_session_factory
-from app.main import app
 import tests.factories as hlp
-
-
-@pytest.fixture
-def client(db_session: Session) -> Iterator[TestClient]:
-    """HTTP client wired to the test database.
-
-    The db_session fixture starts/truncates the test database. Endpoint requests use
-    their own short-lived sessions, closer to how the real API runs.
-    """
-    SessionLocal = get_session_factory()
-
-    def override_get_db():
-        db = SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    try:
-        with TestClient(app) as test_client:
-            yield test_client
-    finally:
-        app.dependency_overrides.clear()
 
 
 def test_get_job_leakage_report_returns_aggregate_metrics(client: TestClient, db_session: Session):
